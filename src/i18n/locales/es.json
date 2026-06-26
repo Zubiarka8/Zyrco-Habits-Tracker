@@ -32,7 +32,12 @@
     "noHabitsDate": "No hay hábitos programados para este día.",
     "skipDay": "Saltar este día",
     "restoreDay": "Restaurar",
-    "skippedSection": "Saltados hoy"
+    "skippedSection": "Saltados hoy",
+    "toastCreated": "Hábito creado",
+    "toastUpdated": "Hábito actualizado",
+    "toastArchived": "Hábito archivado",
+    "toastUnarchived": "Hábito desarchivado",
+    "toastDeleted": "Hábito eliminado"
   },
   "habits": {
     "title": "Mis Hábitos",

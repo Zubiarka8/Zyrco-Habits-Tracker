@@ -32,7 +32,12 @@
     "noHabitsDate": "No habits scheduled for this day.",
     "skipDay": "Skip this day",
     "restoreDay": "Restore",
-    "skippedSection": "Skipped today"
+    "skippedSection": "Skipped today",
+    "toastCreated": "Habit created",
+    "toastUpdated": "Habit updated",
+    "toastArchived": "Habit archived",
+    "toastUnarchived": "Habit unarchived",
+    "toastDeleted": "Habit deleted"
   },
   "habits": {
     "title": "My Habits",

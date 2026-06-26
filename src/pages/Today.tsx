@@ -23,6 +23,7 @@ import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
 import { useReminders } from "../hooks/useReminders";
 import { useSkips, useRangeSkips } from "../hooks/useSkips";
+import { useToast } from "../context/ToastContext";
 import { upsertLog } from "../db/database";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
@@ -219,6 +220,74 @@ function MonthStrip({
   );
 }
 
+// ── TypeFilterChips ───────────────────────────────────────
+
+type HabitTypeFilter = "all" | "good" | "bad" | "normal";
+
+function TypeFilterChips({
+  active,
+  hasGood,
+  hasBad,
+  hasNormal,
+  onChange,
+}: {
+  active: HabitTypeFilter;
+  hasGood: boolean;
+  hasBad: boolean;
+  hasNormal: boolean;
+  onChange: (f: HabitTypeFilter) => void;
+}) {
+  const { t } = useTranslation();
+
+  const chips: { key: HabitTypeFilter; label: string; show: boolean }[] = [
+    { key: "all",    label: t("habits.filterAll"),    show: true },
+    { key: "good",   label: t("habits.typeGood"),     show: hasGood },
+    { key: "bad",    label: t("habits.typeBad"),      show: hasBad },
+    { key: "normal", label: t("habits.typeNormal"),   show: hasNormal },
+  ];
+
+  return (
+    <div className="type-filter-chips">
+      {chips.filter((c) => c.show).map((c) => (
+        <button
+          key={c.key}
+          className={`type-chip type-chip--${c.key} ${active === c.key ? "type-chip--active" : ""}`}
+          onClick={() => onChange(c.key)}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── DoneSection ───────────────────────────────────────────
+
+/** Collapsible section showing habits already completed for the day. */
+function DoneSection({
+  habits,
+  ...listProps
+}: { habits: Habit[] } & Omit<Parameters<typeof HabitList>[0], "habits">) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="done-section">
+      <button
+        className="done-section-header"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="done-section-label">
+          {t("today.done")} ({habits.length})
+        </span>
+        <span className="done-section-chevron">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && <HabitList habits={habits} {...listProps} />}
+    </div>
+  );
+}
+
 // ── SkippedSection ────────────────────────────────────────
 
 /** Shows habits that were skipped on this day with a one-click restore. */
@@ -293,8 +362,13 @@ export function Today() {
 
   useReminders(habits, selectedDate === todayStr ? logs : []);
 
+  const { showToast } = useToast();
+
   // ── Note modal ────────────────────────────────────────────
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
+
+  // ── Type filter ───────────────────────────────────────────
+  const [typeFilter, setTypeFilter] = useState<"all" | "good" | "bad" | "normal">("all");
 
   // ── CRUD state ────────────────────────────────────────────
   const [formOpen, setFormOpen]       = useState(false);
@@ -319,26 +393,34 @@ export function Today() {
       try {
         if (editHabit) {
           await update(editHabit.id, data);
+          showToast(t("today.toastUpdated"), "success");
         } else {
           await create(data);
+          showToast(t("today.toastCreated"), "success");
         }
         setFormOpen(false);
         setEditHabit(null);
       } catch (err) {
         console.error("Today handleSave failed:", err);
+        showToast(t("common.error"), "error");
       }
     },
-    [editHabit, create, update]
+    [editHabit, create, update, showToast, t]
   );
 
   const handleArchive = useCallback(async (habit: Habit) => {
     try {
       await archive(habit.id, !habit.archived);
+      showToast(
+        habit.archived ? t("today.toastUnarchived") : t("today.toastArchived"),
+        "info"
+      );
     } catch (err) {
       console.error("Today handleArchive failed:", err);
+      showToast(t("common.error"), "error");
     }
     setMenu(null);
-  }, [archive]);
+  }, [archive, showToast, t]);
 
   const confirmDelete = useCallback((habit: Habit) => {
     setDeleteTarget(habit);
@@ -349,11 +431,13 @@ export function Today() {
     if (!deleteTarget) return;
     try {
       await remove(deleteTarget.id);
+      showToast(t("today.toastDeleted"), "info");
     } catch (err) {
       console.error("Today handleDelete failed:", err);
+      showToast(t("common.error"), "error");
     }
     setDeleteTarget(null);
-  }, [deleteTarget, remove]);
+  }, [deleteTarget, remove, showToast, t]);
 
   const openMenu = useCallback(
     (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => {
@@ -416,6 +500,12 @@ export function Today() {
 
   const handleJumpTo = useCallback((date: Date) => { setViewDate(date); }, []);
 
+  const handleGoToToday = useCallback(() => {
+    const now = new Date();
+    setSelectedDate(todayStr);
+    setViewDate(now);
+  }, [todayStr]);
+
   const handleViewChange = useCallback(
     (v: CalendarView) => {
       setCalView(v);
@@ -439,9 +529,18 @@ export function Today() {
     return <div className="page-loading">{t("common.loading")}</div>;
   }
 
-  const isToday      = selectedDate === todayStr;
+  const isToday       = selectedDate === todayStr;
   const selectedLabel = format(selectedDateObj, "EEEE, MMMM d");
-  const menuHabit    = menu ? habits.find((h) => h.id === menu.habitId) ?? null : null;
+  const menuHabit     = menu ? habits.find((h) => h.id === menu.habitId) ?? null : null;
+
+  // Apply type filter
+  const filteredDue = typeFilter === "all"
+    ? dueHabits
+    : dueHabits.filter((h) => h.type === typeFilter);
+
+  // Split into pending and done for separate sections
+  const pendingHabits = filteredDue.filter((h) => !getLog(h.id)?.completed);
+  const doneHabits    = filteredDue.filter((h) =>  getLog(h.id)?.completed);
 
   // ── Shared habit-list props ────────────────────────────────
   const habitListProps = {
@@ -452,6 +551,11 @@ export function Today() {
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
   };
+
+  // ── Filter chip types present in dueHabits ─────────────────
+  const hasGood   = dueHabits.some((h) => h.type === "good");
+  const hasBad    = dueHabits.some((h) => h.type === "bad");
+  const hasNormal = dueHabits.some((h) => h.type === "normal");
 
   return (
     <>
@@ -472,6 +576,7 @@ export function Today() {
                 onDateSelect={handleDateSelectFromCal}
                 onNavigate={handleNavigate}
                 onJumpTo={handleJumpTo}
+                onGoToToday={handleGoToToday}
               />
             </div>
 
@@ -516,6 +621,16 @@ export function Today() {
                   </div>
                 )}
 
+                {dueHabits.length > 0 && (hasGood || hasBad || hasNormal) && (
+                  <TypeFilterChips
+                    active={typeFilter}
+                    hasGood={hasGood}
+                    hasBad={hasBad}
+                    hasNormal={hasNormal}
+                    onChange={setTypeFilter}
+                  />
+                )}
+
                 {done === total && total > 0 && (
                   <div className="all-done all-done--compact">
                     <span className="all-done-icon">🎉</span>
@@ -523,8 +638,12 @@ export function Today() {
                   </div>
                 )}
 
-                {dueHabits.length > 0 && (
-                  <HabitList habits={dueHabits} {...habitListProps} />
+                {pendingHabits.length > 0 && (
+                  <HabitList habits={pendingHabits} {...habitListProps} />
+                )}
+
+                {doneHabits.length > 0 && (
+                  <DoneSection habits={doneHabits} {...habitListProps} />
                 )}
 
                 {skippedHabits.length > 0 && (
@@ -567,6 +686,7 @@ export function Today() {
             }}
             onNavigate={handleNavigate}
             onJumpTo={handleJumpTo}
+            onGoToToday={handleGoToToday}
             onToggle={toggleForRange}
           />
         </div>
@@ -586,6 +706,7 @@ export function Today() {
             onDateSelect={handleDateSelectFromCal}
             onNavigate={handleNavigate}
             onJumpTo={handleJumpTo}
+            onGoToToday={handleGoToToday}
           />
 
           <div className="cal-day-header">
@@ -601,7 +722,7 @@ export function Today() {
             </button>
           </div>
 
-          {dueHabits.length === 0 && !logsLoading && (
+          {dueHabits.length === 0 && skippedHabits.length === 0 && !logsLoading && (
             <div className="empty-state">
               <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
             </div>
@@ -614,7 +735,23 @@ export function Today() {
             </div>
           )}
 
-          <HabitList habits={dueHabits} {...habitListProps} />
+          {dueHabits.length > 0 && (hasGood || hasBad || hasNormal) && (
+            <TypeFilterChips
+              active={typeFilter}
+              hasGood={hasGood}
+              hasBad={hasBad}
+              hasNormal={hasNormal}
+              onChange={setTypeFilter}
+            />
+          )}
+
+          {pendingHabits.length > 0 && (
+            <HabitList habits={pendingHabits} {...habitListProps} />
+          )}
+
+          {doneHabits.length > 0 && (
+            <DoneSection habits={doneHabits} {...habitListProps} />
+          )}
 
           {skippedHabits.length > 0 && (
             <SkippedSection

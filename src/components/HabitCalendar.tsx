@@ -34,6 +34,8 @@ export interface HabitCalendarProps {
   onNavigate: (dir: "prev" | "next") => void;
   /** Jump directly to a date (month/year picker) */
   onJumpTo?: (date: Date) => void;
+  /** Jump to today — resets viewDate and selectedDate */
+  onGoToToday?: () => void;
   /** Optional — wired up for the weekly grid so you can toggle habits inline */
   onToggle?: (habitId: string, date: string, currentCompleted: boolean) => void;
 }
@@ -454,6 +456,7 @@ export function HabitCalendar({
   onDateSelect,
   onNavigate,
   onJumpTo,
+  onGoToToday,
   onToggle,
 }: HabitCalendarProps) {
   const { t } = useTranslation();
@@ -555,16 +558,27 @@ export function HabitCalendar({
           </button>
         </div>
 
-        <div className="cal-view-toggle">
-          {(["monthly", "weekly", "daily"] as CalendarView[]).map((v) => (
+        <div className="cal-nav-right">
+          {onGoToToday && selectedDate !== today && (
             <button
-              key={v}
-              className={`cal-view-btn ${view === v ? "cal-view-btn--active" : ""}`}
-              onClick={() => onViewChange(v)}
+              className="cal-today-btn"
+              onClick={onGoToToday}
+              title={t("today.calToday")}
             >
-              {VIEW_LABELS[v]}
+              {t("today.calToday")}
             </button>
-          ))}
+          )}
+          <div className="cal-view-toggle">
+            {(["monthly", "weekly", "daily"] as CalendarView[]).map((v) => (
+              <button
+                key={v}
+                className={`cal-view-btn ${view === v ? "cal-view-btn--active" : ""}`}
+                onClick={() => onViewChange(v)}
+              >
+                {VIEW_LABELS[v]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

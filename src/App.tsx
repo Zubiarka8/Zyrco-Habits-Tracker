@@ -1,5 +1,6 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import { PremiumProvider } from "./context/PremiumContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { Today } from "./pages/Today";
@@ -32,7 +33,9 @@ function AppContent() {
 
   return (
     <PremiumProvider>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </PremiumProvider>
   );
 }
