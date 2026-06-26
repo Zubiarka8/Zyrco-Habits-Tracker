@@ -12,8 +12,10 @@ import {
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { CheckCircle2, Circle, MessageSquare, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import {
+  CheckCircle2, Circle, MessageSquare, Plus,
+  MoreVertical, Edit2, Archive, ArchiveRestore, Trash2,
+} from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
 import { useCategories } from "../hooks/useCategories";
@@ -22,15 +24,20 @@ import { useReminders } from "../hooks/useReminders";
 import { upsertLog } from "../db/database";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
+import { Modal } from "../components/Modal";
+import { HabitForm } from "../components/HabitForm";
 import { HabitCalendar, type CalendarView } from "../components/HabitCalendar";
 import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit, Log } from "../types";
+
+type MenuState = { habitId: string; x: number; y: number } | null;
 
 // ── HabitList ─────────────────────────────────────────────
 
 /**
  * Scrollable habit list for a single date — reused in daily view and the
- * day-panel that sits beside the monthly calendar.
+ * day-panel beside the monthly calendar. Passes habit menu events up so the
+ * parent can own the dropdown and modals.
  */
 function HabitList({
   habits,
@@ -39,6 +46,7 @@ function HabitList({
   getHabitStats,
   toggle,
   onNoteClick,
+  onHabitMenu,
 }: {
   habits: Habit[];
   logs: Log[];
@@ -46,6 +54,7 @@ function HabitList({
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
   toggle: (habitId: string, completed: boolean) => void;
   onNoteClick: (habit: Habit) => void;
+  onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
 }) {
   const { t } = useTranslation();
   const getLog = useCallback(
@@ -56,9 +65,9 @@ function HabitList({
   return (
     <div className="habit-list">
       {habits.map((habit) => {
-        const log = getLog(habit.id);
+        const log      = getLog(habit.id);
         const completed = log?.completed ?? false;
-        const stats = getHabitStats(habit.id);
+        const stats    = getHabitStats(habit.id);
         const category = categories.find((c) => c.id === habit.category_id);
 
         return (
@@ -72,24 +81,12 @@ function HabitList({
             <button
               className={`check-btn ${
                 completed
-                  ? habit.type === "bad"
-                    ? "check-btn-avoided"
-                    : "check-btn-done"
+                  ? habit.type === "bad" ? "check-btn-avoided" : "check-btn-done"
                   : ""
               }`}
               onClick={() => toggle(habit.id, completed)}
-              aria-label={
-                completed
-                  ? "Uncheck"
-                  : habit.type === "bad"
-                  ? t("today.checkBad")
-                  : t("today.checkGood")
-              }
-              title={
-                habit.type === "bad"
-                  ? t("today.checkBad")
-                  : t("today.checkGood")
-              }
+              aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
+              title={habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
             >
               {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
             </button>
@@ -101,9 +98,7 @@ function HabitList({
                 {stats.streak > 0 && <StreakBadge streak={stats.streak} />}
                 {habit.type !== "normal" && (
                   <span className={`type-pill type-pill-${habit.type}`}>
-                    {habit.type === "bad"
-                      ? t("today.doneBad")
-                      : t("today.doneGood")}
+                    {habit.type === "bad" ? t("today.doneBad") : t("today.doneGood")}
                   </span>
                 )}
               </div>
@@ -113,10 +108,7 @@ function HabitList({
                   {category && (
                     <span
                       className="category-badge"
-                      style={{
-                        background: category.color + "22",
-                        color: category.color,
-                      }}
+                      style={{ background: category.color + "22", color: category.color }}
                     >
                       {category.icon} {category.name}
                     </span>
@@ -136,6 +128,14 @@ function HabitList({
               aria-label={t("today.addNote")}
             >
               <MessageSquare size={16} />
+            </button>
+
+            <button
+              className="icon-btn menu-btn"
+              onClick={(e) => onHabitMenu(habit, e)}
+              aria-label={t("habits.edit")}
+            >
+              <MoreVertical size={16} />
             </button>
           </div>
         );
@@ -173,9 +173,9 @@ function MonthStrip({
   return (
     <div className="month-strip">
       {days.map((dayObj) => {
-        const date     = format(dayObj, "yyyy-MM-dd");
-        const due      = habits.filter((h) => isHabitDueOnDay(h, dayObj));
-        const dueCount = due.length;
+        const date      = format(dayObj, "yyyy-MM-dd");
+        const due       = habits.filter((h) => isHabitDueOnDay(h, dayObj));
+        const dueCount  = due.length;
         const doneCount = due.filter((h) =>
           rangeLogs.some((l) => l.habit_id === h.id && l.date === date && l.completed)
         ).length;
@@ -189,9 +189,9 @@ function MonthStrip({
             type="button"
             className={[
               "month-strip-day",
-              isToday  ? "month-strip-day--today"    : "",
-              isSel    ? "month-strip-day--selected" : "",
-              allDone && !isSel ? "month-strip-day--done" : "",
+              isToday           ? "month-strip-day--today"    : "",
+              isSel             ? "month-strip-day--selected" : "",
+              allDone && !isSel ? "month-strip-day--done"     : "",
             ].filter(Boolean).join(" ")}
             onClick={() => onSelectDate(date)}
           >
@@ -211,24 +211,18 @@ function MonthStrip({
 
 export function Today() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
   // ── Calendar state ────────────────────────────────────────
-  const [calView, setCalView] = useState<CalendarView>("monthly");
-  const [viewDate, setViewDate] = useState(new Date());
+  const [calView, setCalView]       = useState<CalendarView>("monthly");
+  const [viewDate, setViewDate]     = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
   // ── Data ──────────────────────────────────────────────────
-  const { habits, loading: habitsLoading } = useHabits();
-  const {
-    logs,
-    loading: logsLoading,
-    toggle,
-    saveNote,
-    reload: reloadDayLogs,
-  } = useDateLogs(selectedDate);
+  const { habits, loading: habitsLoading, create, update, archive, remove } = useHabits();
+  const { logs, loading: logsLoading, toggle, saveNote, reload: reloadDayLogs } =
+    useDateLogs(selectedDate);
   const { categories } = useCategories();
   const { getHabitStats } = useStats();
 
@@ -236,12 +230,12 @@ export function Today() {
     if (calView === "monthly") {
       return {
         start: format(startOfMonth(viewDate), "yyyy-MM-dd"),
-        end: format(endOfMonth(viewDate), "yyyy-MM-dd"),
+        end:   format(endOfMonth(viewDate), "yyyy-MM-dd"),
       };
     }
     return {
       start: format(startOfWeek(viewDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
-      end: format(endOfWeek(viewDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      end:   format(endOfWeek(viewDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
     };
   }, [calView, viewDate]);
 
@@ -255,9 +249,80 @@ export function Today() {
   // ── Note modal ────────────────────────────────────────────
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
 
+  // ── CRUD state ────────────────────────────────────────────
+  const [formOpen, setFormOpen]       = useState(false);
+  const [editHabit, setEditHabit]     = useState<Habit | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
+  const [menu, setMenu]               = useState<MenuState>(null);
+
+  const openCreate = useCallback(() => {
+    setEditHabit(null);
+    setFormOpen(true);
+    setMenu(null);
+  }, []);
+
+  const openEdit = useCallback((habit: Habit) => {
+    setEditHabit(habit);
+    setFormOpen(true);
+    setMenu(null);
+  }, []);
+
+  const handleSave = useCallback(
+    async (data: Omit<Habit, "id" | "created_at" | "archived">) => {
+      try {
+        if (editHabit) {
+          await update(editHabit.id, data);
+        } else {
+          await create(data);
+        }
+        setFormOpen(false);
+        setEditHabit(null);
+      } catch (err) {
+        console.error("Today handleSave failed:", err);
+      }
+    },
+    [editHabit, create, update]
+  );
+
+  const handleArchive = useCallback(async (habit: Habit) => {
+    try {
+      await archive(habit.id, !habit.archived);
+    } catch (err) {
+      console.error("Today handleArchive failed:", err);
+    }
+    setMenu(null);
+  }, [archive]);
+
+  const confirmDelete = useCallback((habit: Habit) => {
+    setDeleteTarget(habit);
+    setMenu(null);
+  }, []);
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await remove(deleteTarget.id);
+    } catch (err) {
+      console.error("Today handleDelete failed:", err);
+    }
+    setDeleteTarget(null);
+  }, [deleteTarget, remove]);
+
+  const openMenu = useCallback(
+    (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      setMenu((prev) =>
+        prev?.habitId === habit.id
+          ? null
+          : { habitId: habit.id, x: rect.right, y: rect.bottom }
+      );
+    },
+    []
+  );
+
   // ── Due habits for the selected date ─────────────────────
   const selectedDateObj = parseISO(selectedDate + "T00:00:00");
-
   const dueHabits = habits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
 
   const getLog = useCallback(
@@ -265,14 +330,9 @@ export function Today() {
     [logs]
   );
 
-  const done = dueHabits.filter((h) => getLog(h.id)?.completed).length;
+  const done  = dueHabits.filter((h) => getLog(h.id)?.completed).length;
   const total = dueHabits.length;
 
-  /**
-   * Toggle a habit on any date (used by the weekly grid).
-   * Dispatching the custom event is handled inside useDateLogs.toggle /
-   * upsertLog — here we only need to reload the range logs for the dots.
-   */
   const toggleForRange = useCallback(
     async (habitId: string, date: string, currentCompleted: boolean) => {
       try {
@@ -281,10 +341,7 @@ export function Today() {
         reloadRangeLogs();
         if (date === selectedDate) reloadDayLogs();
       } catch (err) {
-        console.error(
-          `toggleForRange failed — habit ${habitId}, date ${date}:`,
-          err
-        );
+        console.error(`toggleForRange failed — habit ${habitId}, date ${date}:`, err);
       }
     },
     [selectedDate, reloadRangeLogs, reloadDayLogs]
@@ -299,7 +356,7 @@ export function Today() {
       } else if (calView === "weekly") {
         setViewDate((d) => addWeeks(d, sign));
       } else {
-        const next = addDays(selectedDateObj, sign);
+        const next    = addDays(selectedDateObj, sign);
         const nextStr = format(next, "yyyy-MM-dd");
         setSelectedDate(nextStr);
         setViewDate(next);
@@ -308,9 +365,7 @@ export function Today() {
     [calView, selectedDateObj]
   );
 
-  const handleJumpTo = useCallback((date: Date) => {
-    setViewDate(date);
-  }, []);
+  const handleJumpTo = useCallback((date: Date) => { setViewDate(date); }, []);
 
   const handleViewChange = useCallback(
     (v: CalendarView) => {
@@ -335,201 +390,248 @@ export function Today() {
     return <div className="page-loading">{t("common.loading")}</div>;
   }
 
-  const isToday = selectedDate === todayStr;
+  const isToday      = selectedDate === todayStr;
   const selectedLabel = format(selectedDateObj, "EEEE, MMMM d");
+  const menuHabit    = menu ? habits.find((h) => h.id === menu.habitId) ?? null : null;
 
-  // ── Monthly layout: split calendar + day panel ─────────────
-  if (calView === "monthly") {
-    return (
-      <div className="page today-page--monthly">
-        <div className="today-split">
-          <div className="today-split-cal">
-            <HabitCalendar
-              view="monthly"
-              viewDate={viewDate}
-              selectedDate={selectedDate}
-              today={todayStr}
-              habits={habits}
-              rangeLogs={rangeLogs}
-              onViewChange={handleViewChange}
-              onDateSelect={handleDateSelectFromCal}
-              onNavigate={handleNavigate}
-              onJumpTo={handleJumpTo}
-            />
-          </div>
+  // ── Shared habit-list props ────────────────────────────────
+  const habitListProps = {
+    logs,
+    categories,
+    getHabitStats,
+    toggle,
+    onNoteClick: setNoteHabit,
+    onHabitMenu: openMenu,
+  };
 
-          <aside className="cal-day-panel">
-            <MonthStrip
-              habits={habits}
-              rangeLogs={rangeLogs}
-              viewDate={viewDate}
-              today={todayStr}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-            />
-
-            <div className="cal-day-panel-header">
-              <span className="cal-day-panel-date">{selectedLabel}</span>
-              {total > 0 && (
-                <span
-                  className={`cal-day-panel-ratio ${
-                    done === total ? "cal-day-panel-ratio--done" : ""
-                  }`}
-                >
-                  {done}/{total}
-                </span>
-              )}
+  return (
+    <>
+      {/* ── Monthly layout ──────────────────────────────────── */}
+      {calView === "monthly" && (
+        <div className="page today-page--monthly">
+          <div className="today-split">
+            <div className="today-split-cal">
+              <HabitCalendar
+                view="monthly"
+                viewDate={viewDate}
+                selectedDate={selectedDate}
+                today={todayStr}
+                habits={habits}
+                rangeLogs={rangeLogs}
+                onViewChange={handleViewChange}
+                onDateSelect={handleDateSelectFromCal}
+                onNavigate={handleNavigate}
+                onJumpTo={handleJumpTo}
+              />
             </div>
 
-            <div className="cal-day-panel-body">
-              {dueHabits.length === 0 && !logsLoading && (
-                <div className="empty-state">
-                  <p>
-                    {isToday
-                      ? t("today.noHabits")
-                      : t("today.noHabitsDate")}
-                  </p>
-                  {isToday && (
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => navigate("/habits")}
-                    >
-                      <Plus size={16} />
-                      {t("today.addFirst")}
-                    </button>
+            <aside className="cal-day-panel">
+              <MonthStrip
+                habits={habits}
+                rangeLogs={rangeLogs}
+                viewDate={viewDate}
+                today={todayStr}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
+
+              <div className="cal-day-panel-header">
+                <span className="cal-day-panel-date">{selectedLabel}</span>
+                <div className="cal-day-panel-actions">
+                  {total > 0 && (
+                    <span className={`cal-day-panel-ratio ${done === total ? "cal-day-panel-ratio--done" : ""}`}>
+                      {done}/{total}
+                    </span>
                   )}
+                  <button
+                    className="icon-btn"
+                    onClick={openCreate}
+                    title={t("habits.new")}
+                  >
+                    <Plus size={16} />
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {done === total && total > 0 && (
-                <div className="all-done all-done--compact">
-                  <span className="all-done-icon">🎉</span>
-                  <p>{t("today.allDone")}</p>
-                </div>
-              )}
+              <div className="cal-day-panel-body">
+                {dueHabits.length === 0 && !logsLoading && (
+                  <div className="empty-state">
+                    <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
+                    {isToday && (
+                      <button className="btn btn-primary" onClick={openCreate}>
+                        <Plus size={16} />
+                        {t("today.addFirst")}
+                      </button>
+                    )}
+                  </div>
+                )}
 
-              {dueHabits.length > 0 && (
-                <HabitList
-                  habits={dueHabits}
-                  logs={logs}
-                  categories={categories}
-                  getHabitStats={getHabitStats}
-                  toggle={toggle}
-                  onNoteClick={setNoteHabit}
+                {done === total && total > 0 && (
+                  <div className="all-done all-done--compact">
+                    <span className="all-done-icon">🎉</span>
+                    <p>{t("today.allDone")}</p>
+                  </div>
+                )}
+
+                {dueHabits.length > 0 && (
+                  <HabitList habits={dueHabits} {...habitListProps} />
+                )}
+              </div>
+
+              {noteHabit && (
+                <NoteModal
+                  open={true}
+                  habitName={noteHabit.name}
+                  initialNote={getLog(noteHabit.id)?.note ?? null}
+                  onSave={(note) => saveNote(noteHabit.id, note)}
+                  onClose={() => setNoteHabit(null)}
                 />
               )}
-            </div>
-
-            {noteHabit && (
-              <NoteModal
-                open={true}
-                habitName={noteHabit.name}
-                initialNote={getLog(noteHabit.id)?.note ?? null}
-                onSave={(note) => saveNote(noteHabit.id, note)}
-                onClose={() => setNoteHabit(null)}
-              />
-            )}
-          </aside>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Weekly: full transposed habit × day grid ───────────────
-  if (calView === "weekly") {
-    return (
-      <div className="page">
-        <HabitCalendar
-          view="weekly"
-          viewDate={viewDate}
-          selectedDate={selectedDate}
-          today={todayStr}
-          habits={habits}
-          rangeLogs={rangeLogs}
-          onViewChange={handleViewChange}
-          onDateSelect={(dateStr) => {
-            setSelectedDate(dateStr);
-            setViewDate(parseISO(dateStr + "T00:00:00"));
-            setCalView("daily");
-          }}
-          onNavigate={handleNavigate}
-          onJumpTo={handleJumpTo}
-          onToggle={toggleForRange}
-        />
-      </div>
-    );
-  }
-
-  // ── Daily: nav header + progress + habit list ──────────────
-  return (
-    <div className="page">
-      <HabitCalendar
-        view="daily"
-        viewDate={viewDate}
-        selectedDate={selectedDate}
-        today={todayStr}
-        habits={habits}
-        rangeLogs={rangeLogs}
-        onViewChange={handleViewChange}
-        onDateSelect={handleDateSelectFromCal}
-        onNavigate={handleNavigate}
-        onJumpTo={handleJumpTo}
-      />
-
-      {total > 0 && (
-        <div className="cal-day-header">
-          <div className="progress-pill">
-            <div
-              className="progress-fill"
-              style={{ width: `${(done / total) * 100}%` }}
-            />
-            <span className="progress-label">
-              {t("today.progress", { done, total })}
-            </span>
+            </aside>
           </div>
         </div>
       )}
 
-      {dueHabits.length === 0 && !logsLoading && (
-        <div className="empty-state">
-          <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
-          {isToday && (
-            <button
-              className="btn btn-primary"
-              onClick={() => navigate("/habits")}
-            >
-              <Plus size={16} />
-              {t("today.addFirst")}
+      {/* ── Weekly layout ───────────────────────────────────── */}
+      {calView === "weekly" && (
+        <div className="page">
+          <HabitCalendar
+            view="weekly"
+            viewDate={viewDate}
+            selectedDate={selectedDate}
+            today={todayStr}
+            habits={habits}
+            rangeLogs={rangeLogs}
+            onViewChange={handleViewChange}
+            onDateSelect={(dateStr) => {
+              setSelectedDate(dateStr);
+              setViewDate(parseISO(dateStr + "T00:00:00"));
+              setCalView("daily");
+            }}
+            onNavigate={handleNavigate}
+            onJumpTo={handleJumpTo}
+            onToggle={toggleForRange}
+          />
+        </div>
+      )}
+
+      {/* ── Daily layout ────────────────────────────────────── */}
+      {calView === "daily" && (
+        <div className="page">
+          <HabitCalendar
+            view="daily"
+            viewDate={viewDate}
+            selectedDate={selectedDate}
+            today={todayStr}
+            habits={habits}
+            rangeLogs={rangeLogs}
+            onViewChange={handleViewChange}
+            onDateSelect={handleDateSelectFromCal}
+            onNavigate={handleNavigate}
+            onJumpTo={handleJumpTo}
+          />
+
+          <div className="cal-day-header">
+            {total > 0 && (
+              <div className="progress-pill">
+                <div className="progress-fill" style={{ width: `${(done / total) * 100}%` }} />
+                <span className="progress-label">{t("today.progress", { done, total })}</span>
+              </div>
+            )}
+            <button className="btn btn-primary btn-sm" onClick={openCreate}>
+              <Plus size={14} />
+              {t("habits.new")}
             </button>
+          </div>
+
+          {dueHabits.length === 0 && !logsLoading && (
+            <div className="empty-state">
+              <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
+            </div>
+          )}
+
+          {done === total && total > 0 && (
+            <div className="all-done">
+              <span className="all-done-icon">🎉</span>
+              <p>{t("today.allDone")}</p>
+            </div>
+          )}
+
+          <HabitList habits={dueHabits} {...habitListProps} />
+
+          {noteHabit && (
+            <NoteModal
+              open={true}
+              habitName={noteHabit.name}
+              initialNote={getLog(noteHabit.id)?.note ?? null}
+              onSave={(note) => saveNote(noteHabit.id, note)}
+              onClose={() => setNoteHabit(null)}
+            />
           )}
         </div>
       )}
 
-      {done === total && total > 0 && (
-        <div className="all-done">
-          <span className="all-done-icon">🎉</span>
-          <p>{t("today.allDone")}</p>
+      {/* ── Habit context menu (shared across all views) ─────── */}
+      {menu && menuHabit && (
+        <div
+          className="dropdown-menu dropdown-menu--fixed"
+          style={{ top: menu.y, left: menu.x }}
+        >
+          <button className="dropdown-item" onClick={() => openEdit(menuHabit)}>
+            <Edit2 size={14} />
+            {t("habits.edit")}
+          </button>
+          <button className="dropdown-item" onClick={() => handleArchive(menuHabit)}>
+            {menuHabit.archived ? (
+              <><ArchiveRestore size={14} />{t("habits.unarchive")}</>
+            ) : (
+              <><Archive size={14} />{t("habits.archive")}</>
+            )}
+          </button>
+          <button
+            className="dropdown-item dropdown-item-danger"
+            onClick={() => confirmDelete(menuHabit)}
+          >
+            <Trash2 size={14} />
+            {t("habits.delete")}
+          </button>
         </div>
       )}
+      {menu && <div className="menu-backdrop" onClick={() => setMenu(null)} />}
 
-      <HabitList
-        habits={dueHabits}
-        logs={logs}
-        categories={categories}
-        getHabitStats={getHabitStats}
-        toggle={toggle}
-        onNoteClick={setNoteHabit}
-      />
-
-      {noteHabit && (
-        <NoteModal
-          open={true}
-          habitName={noteHabit.name}
-          initialNote={getLog(noteHabit.id)?.note ?? null}
-          onSave={(note) => saveNote(noteHabit.id, note)}
-          onClose={() => setNoteHabit(null)}
+      {/* ── Create / Edit modal ──────────────────────────────── */}
+      <Modal
+        open={formOpen}
+        title={editHabit ? t("habits.edit") : t("habits.new")}
+        onClose={() => { setFormOpen(false); setEditHabit(null); }}
+        size="lg"
+      >
+        <HabitForm
+          initial={editHabit ?? undefined}
+          categories={categories}
+          onSave={handleSave}
+          onCancel={() => { setFormOpen(false); setEditHabit(null); }}
         />
-      )}
-    </div>
+      </Modal>
+
+      {/* ── Delete confirmation modal ────────────────────────── */}
+      <Modal
+        open={!!deleteTarget}
+        title={t("habits.delete")}
+        onClose={() => setDeleteTarget(null)}
+        size="sm"
+      >
+        <p className="confirm-text">{t("habits.deleteConfirm")}</p>
+        <p className="confirm-name">{deleteTarget?.name}</p>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>
+            {t("common.cancel")}
+          </button>
+          <button className="btn btn-danger" onClick={handleDelete}>
+            {t("common.delete")}
+          </button>
+        </div>
+      </Modal>
+    </>
   );
 }
