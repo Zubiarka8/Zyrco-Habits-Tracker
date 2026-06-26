@@ -3,6 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Download, Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { exportAllData, importData, type ExportData } from "../db/database";
 
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Export JSON básico → todos los planes.
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Export CSV / PDF → solo premium.
+// Cuando MONETIZATION_ACTIVE = true: mostrar PremiumGate wrapping el botón CSV/PDF.
 export function ImportExport() {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);

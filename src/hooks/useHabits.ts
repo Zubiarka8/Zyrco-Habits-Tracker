@@ -28,6 +28,10 @@ export function useHabits(includeArchived = false) {
     load();
   }, [load]);
 
+  // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Límite de hábitos activos.
+  // Free tendrá máximo 10 hábitos no archivados.
+  // Cuando MONETIZATION_ACTIVE = true: verificar habits.filter(h => !h.archived).length < PLAN_LIMITS[plan].maxHabits
+  // antes de llamar a insertHabit(); si supera el límite, lanzar error y mostrar upsell.
   const create = useCallback(
     async (data: Omit<Habit, "id" | "created_at" | "archived">) => {
       const habit = await insertHabit(data);

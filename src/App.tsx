@@ -1,4 +1,5 @@
 import { createHashRouter, RouterProvider } from "react-router-dom";
+import { PremiumProvider } from "./context/PremiumContext";
 import { Layout } from "./components/Layout";
 import { Today } from "./pages/Today";
 import { Habits } from "./pages/Habits";
@@ -19,5 +20,9 @@ const router = createHashRouter([
 ]);
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <PremiumProvider>
+      <RouterProvider router={router} />
+    </PremiumProvider>
+  );
 }

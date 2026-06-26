@@ -7,6 +7,8 @@ import { ImportExport } from "../components/ImportExport";
 import { Plus, Trash2, Edit2 } from "lucide-react";
 import type { Category } from "../types";
 
+// [FUTURO - PREMIUM ANUAL + LIFETIME] Temas visuales exclusivos (accent colors, dark variants especiales).
+// Cuando MONETIZATION_ACTIVE = true: mostrar selector de temas premium con PremiumGate.
 const CATEGORY_COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
   "#f97316", "#eab308", "#22c55e", "#14b8a6",

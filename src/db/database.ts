@@ -1,5 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
-import type { Category, Habit, Log } from "../types";
+import type { Category, Habit, Log, Subscription, PlanType } from "../types";
 
 let db: Database | null = null;
 
@@ -52,6 +52,39 @@ async function initSchema(database: Database): Promise<void> {
     )
   `);
 
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      plan_type TEXT NOT NULL DEFAULT 'free',
+      status TEXT NOT NULL DEFAULT 'active',
+      started_at TEXT NOT NULL,
+      expires_at TEXT,
+      cancelled_at TEXT,
+      renewed_at TEXT,
+      payment_provider TEXT,
+      payment_reference TEXT,
+      streak_shields_used INTEGER NOT NULL DEFAULT 0,
+      streak_shields_reset_at TEXT
+    )
+  `);
+
+  // Seed a default free subscription for local user if none exists
+  const existingSubs = await database.select<{ id: string }[]>(
+    "SELECT id FROM subscriptions LIMIT 1"
+  );
+  if (existingSubs.length === 0) {
+    const localUserId = getLocalUserId();
+    await database.execute(
+      `INSERT INTO subscriptions
+        (id, user_id, plan_type, status, started_at,
+         expires_at, cancelled_at, renewed_at, payment_provider,
+         payment_reference, streak_shields_used, streak_shields_reset_at)
+       VALUES ($1,$2,'free','active',$3,NULL,NULL,NULL,NULL,NULL,0,NULL)`,
+      [crypto.randomUUID(), localUserId, new Date().toISOString()]
+    );
+  }
+
   // Migration: add `type` column to existing DBs that don't have it yet
   const cols = await database.select<{ name: string }[]>(
     "PRAGMA table_info(habits)"
@@ -61,6 +94,123 @@ async function initSchema(database: Database): Promise<void> {
       "ALTER TABLE habits ADD COLUMN type TEXT NOT NULL DEFAULT 'normal'"
     );
   }
+}
+
+// ---- Local user identity ----
+
+function getLocalUserId(): string {
+  let id = localStorage.getItem("zyrco-local-user-id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("zyrco-local-user-id", id);
+  }
+  return id;
+}
+
+// ---- Subscriptions ----
+
+type RawSubscription = Omit<Subscription, "streak_shields_used"> & {
+  streak_shields_used: number;
+};
+
+function parseSubscription(raw: RawSubscription): Subscription {
+  return { ...raw, streak_shields_used: Number(raw.streak_shields_used) };
+}
+
+/** Returns current local subscription. Always exists (seeded as free on first launch). */
+export async function getSubscription(): Promise<Subscription | null> {
+  const db = await getDb();
+  const rows = await db.select<RawSubscription[]>(
+    "SELECT * FROM subscriptions ORDER BY started_at DESC LIMIT 1"
+  );
+  return rows.length ? parseSubscription(rows[0]) : null;
+}
+
+/**
+ * [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME]
+ * Activar plan premium tras pago confirmado por RevenueCat / Stripe.
+ * Actualmente no se llama desde ningún lugar — preparado para integración futura.
+ */
+export async function activateSubscription(
+  planType: PlanType,
+  expiresAt: string | null,
+  paymentProvider: "revenuecat" | "stripe",
+  paymentReference: string
+): Promise<void> {
+  const db = await getDb();
+  const sub = await getSubscription();
+  if (!sub) return;
+  await db.execute(
+    `UPDATE subscriptions
+     SET plan_type = $1, status = 'active', expires_at = $2,
+         renewed_at = $3, payment_provider = $4, payment_reference = $5
+     WHERE id = $6`,
+    [planType, expiresAt, new Date().toISOString(), paymentProvider, paymentReference, sub.id]
+  );
+}
+
+/**
+ * [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME]
+ * Cancela suscripción. El acceso se mantiene hasta expires_at.
+ */
+export async function cancelSubscription(): Promise<void> {
+  const db = await getDb();
+  const sub = await getSubscription();
+  if (!sub) return;
+  await db.execute(
+    "UPDATE subscriptions SET status = 'cancelled', cancelled_at = $1 WHERE id = $2",
+    [new Date().toISOString(), sub.id]
+  );
+}
+
+/**
+ * [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME]
+ * Marca suscripción como expirada y degrada al plan free.
+ * Llamar desde un cron o al abrir la app si expires_at < NOW().
+ */
+export async function expireSubscription(): Promise<void> {
+  const db = await getDb();
+  const sub = await getSubscription();
+  if (!sub) return;
+  await db.execute(
+    "UPDATE subscriptions SET status = 'expired', plan_type = 'free' WHERE id = $1",
+    [sub.id]
+  );
+}
+
+/**
+ * [FUTURO - PREMIUM MENSUAL] 1 escudo/mes
+ * [FUTURO - PREMIUM ANUAL + LIFETIME] 3+ escudos/mes
+ * Usa un streak shield. Resetea el contador mensual si hace falta.
+ */
+export async function useStreakShield(): Promise<boolean> {
+  const db = await getDb();
+  const sub = await getSubscription();
+  if (!sub) return false;
+
+  const now = new Date();
+  const resetDate = sub.streak_shields_reset_at
+    ? new Date(sub.streak_shields_reset_at)
+    : null;
+  const needsReset =
+    !resetDate ||
+    resetDate.getMonth() !== now.getMonth() ||
+    resetDate.getFullYear() !== now.getFullYear();
+
+  const shieldsUsed = needsReset ? 0 : sub.streak_shields_used;
+
+  if (needsReset) {
+    await db.execute(
+      "UPDATE subscriptions SET streak_shields_used = 0, streak_shields_reset_at = $1 WHERE id = $2",
+      [now.toISOString(), sub.id]
+    );
+  }
+
+  await db.execute(
+    "UPDATE subscriptions SET streak_shields_used = $1 WHERE id = $2",
+    [shieldsUsed + 1, sub.id]
+  );
+  return true;
 }
 
 // ---- Categories ----
@@ -120,6 +270,9 @@ function parseHabit(raw: RawHabit): Habit {
   };
 }
 
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Límite de hábitos activos.
+// Free tendrá máximo 10. Aquí devolver todos; el hook useHabits aplicará el límite de UI.
+// Cuando MONETIZATION_ACTIVE = true: SELECT ... LIMIT según PLAN_LIMITS[plan].maxHabits
 export async function fetchHabits(includeArchived = false): Promise<Habit[]> {
   const db = await getDb();
   const rows = await db.select<RawHabit[]>(
@@ -267,6 +420,8 @@ export interface ExportData {
   logs: Log[];
 }
 
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Exportar datos será exclusivo de pago.
+// Free podrá exportar solo JSON básico; CSV/PDF serán premium.
 export async function exportAllData(): Promise<ExportData> {
   const db = await getDb();
   const categories = await fetchCategories();
@@ -276,6 +431,7 @@ export async function exportAllData(): Promise<ExportData> {
   return { version: 1, exportedAt: new Date().toISOString(), categories, habits, logs };
 }
 
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Importar historial completo será exclusivo de pago.
 export async function importData(data: ExportData): Promise<{ habits: number; categories: number; logs: number }> {
   const db = await getDb();
 

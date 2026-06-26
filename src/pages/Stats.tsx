@@ -43,6 +43,9 @@ export function Stats() {
     completions: d.completed,
   }));
 
+  // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Período de 90 días → solo premium.
+  // Free verá máximo 30 días. Cuando MONETIZATION_ACTIVE = true: deshabilitar el botón de 90
+  // para free y mostrar un upsell al hacer click.
   const periodOptions: { value: Period; label: string }[] = [
     { value: 7, label: t("stats.last7days") },
     { value: 30, label: t("stats.last30days") },

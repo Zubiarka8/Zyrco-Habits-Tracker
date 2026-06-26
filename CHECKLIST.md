@@ -19,24 +19,60 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 
 ---
 
-## 👤 User Roles
-- ⬜ **Free** tier definition:
-  - ⬜ Unlimited habits (no cap)
-  - ⬜ Local storage only
-  - ⬜ Basic stats (7 / 30 days)
-  - ⬜ Non-intrusive ads (banner bottom, never in habit flow)
-- ⬜ **Premium** tier definition:
-  - ⬜ No ads
-  - ⬜ Cloud sync + multi-device
-  - ⬜ Full stats (90 days + heatmap + correlation)
-  - ⬜ Export (PDF, CSV, PNG)
-  - ⬜ Advanced reminders (streak alerts, weekly report)
-  - ⬜ Streak freeze
-  - ⬜ Gamification (XP, badges, leaderboard)
-- ⬜ Role stored in user profile (local + cloud)
-- ⬜ Premium purchase flow (in-app subscription or one-time)
-- ⬜ Premium badge in profile
-- ⬜ Restore purchase
+## 👤 User Roles & Plans
+
+> **Estado actual:** `MONETIZATION_ACTIVE = false` → todos los usuarios tienen acceso completo (`isPremium = true` global). Sin bloqueos.
+
+### Arquitectura implementada ✅
+- ✅ Tabla `subscriptions` en SQLite (user_id, plan_type, status, expires_at, streak_shields, etc.)
+- ✅ `usePremium` hook — `checkIsPremium()`, `checkIsLifetime()`, `getShieldsRemaining()`
+- ✅ `PremiumContext` + `PremiumProvider` wrapping la app
+- ✅ `PremiumGate` component (actualmente transparente — siempre renderiza children)
+- ✅ Flag `MONETIZATION_ACTIVE = false` — un solo cambio activa toda la lógica
+- ✅ Auto-expire subscriptions al abrir la app
+- ✅ Streak shields con reset mensual automático
+- ✅ Comentarios `[FUTURO - PREMIUM X]` en todas las funciones afectadas
+
+### Plan Free (activo para todos ahora — límites no activos)
+- ⬜ Máximo 10 hábitos activos `[FUTURO]`
+- ⬜ Estadísticas 30 días máximo `[FUTURO]`
+- ⬜ 1 recordatorio por hábito `[FUTURO]`
+- ⬜ Sin anuncios (por ahora)
+- ⬜ Ads no intrusivos cuando se active monetización `[FUTURO]`
+
+### Premium Mensual (futuro — no activo)
+- ⬜ Hábitos ilimitados `[FUTURO]`
+- ⬜ Estadísticas completas + historial completo `[FUTURO]`
+- ⬜ Recordatorios inteligentes `[FUTURO]`
+- ⬜ 1 racha protegida / mes `[FUTURO]`
+- ⬜ Sync en la nube `[FUTURO]`
+- ⬜ Export CSV/PDF `[FUTURO]`
+- ⬜ Sin anuncios `[FUTURO]`
+- ⬜ Soporte prioritario `[FUTURO]`
+
+### Premium Anual (futuro — no activo)
+- ⬜ Todo lo del mensual `[FUTURO]`
+- ⬜ 3 rachas protegidas / mes `[FUTURO]`
+- ⬜ Temas visuales exclusivos `[FUTURO]`
+- ⬜ Acceso anticipado a novedades `[FUTURO]`
+- ⬜ 2 meses gratis incluidos `[FUTURO]`
+
+### Premium Lifetime (futuro — no activo)
+- ⬜ Todo lo del anual `[FUTURO]`
+- ⬜ Racha protegida ilimitada `[FUTURO]`
+- ⬜ Badge exclusivo de fundador `[FUTURO]`
+- ⬜ Voto en nuevas funciones `[FUTURO]`
+- ⬜ Todas las futuras funciones incluidas `[FUTURO]`
+- ⬜ Sin pagos futuros nunca `[FUTURO]`
+
+### Activación futura
+- ⬜ Cambiar `MONETIZATION_ACTIVE = true` en `usePremium.ts`
+- ⬜ Integrar RevenueCat (mobile) o Stripe (web/desktop)
+- ⬜ `activateSubscription()` desde webhook de pago
+- ⬜ `cancelSubscription()` desde settings
+- ⬜ Pantalla de planes / upgrade (upsell CTA)
+- ⬜ Restore purchase (RevenueCat)
+- ⬜ Premium badge en perfil
 
 ---
 

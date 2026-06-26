@@ -7,6 +7,10 @@ import {
 } from "@tauri-apps/plugin-notification";
 import type { Habit, Log } from "../types";
 
+// [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Recordatorios inteligentes.
+// Free tendrá 1 recordatorio por hábito (reminder_time).
+// Premium tendrá múltiples recordatorios, recordatorios adaptativos y alertas de racha en riesgo.
+// Cuando MONETIZATION_ACTIVE = true: limitar enabled habits según PLAN_LIMITS[plan].remindersPerHabit
 export function useReminders(habits: Habit[], todayLogs: Log[]) {
   useEffect(() => {
     const enabledHabits = habits.filter(

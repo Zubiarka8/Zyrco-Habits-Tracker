@@ -37,6 +37,59 @@ export interface HabitWithMeta extends Habit {
   category: Category | null;
 }
 
+// ── Subscription / Monetization ──────────────────────────
+
+export type PlanType =
+  | "free"
+  | "premium_monthly"
+  | "premium_yearly"
+  | "premium_lifetime";
+
+export type SubscriptionStatus = "active" | "cancelled" | "expired" | "trial";
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  plan_type: PlanType;
+  status: SubscriptionStatus;
+  started_at: string;
+  expires_at: string | null;
+  cancelled_at: string | null;
+  renewed_at: string | null;
+  payment_provider: "revenuecat" | "stripe" | null;
+  payment_reference: string | null;
+  streak_shields_used: number;
+  streak_shields_reset_at: string | null;
+}
+
+/** Limits per plan — free values used when MONETIZATION_ACTIVE = true */
+export const PLAN_LIMITS = {
+  free: {
+    maxHabits: 10,
+    statsDays: 30,
+    remindersPerHabit: 1,
+    streakShieldsPerMonth: 0,
+  },
+  premium_monthly: {
+    maxHabits: Infinity,
+    statsDays: Infinity,
+    remindersPerHabit: Infinity,
+    streakShieldsPerMonth: 1,
+  },
+  premium_yearly: {
+    maxHabits: Infinity,
+    statsDays: Infinity,
+    remindersPerHabit: Infinity,
+    streakShieldsPerMonth: 3,
+  },
+  premium_lifetime: {
+    maxHabits: Infinity,
+    statsDays: Infinity,
+    remindersPerHabit: Infinity,
+    streakShieldsPerMonth: Infinity,
+  },
+} as const;
+
 export interface HabitStats {
   habitId: string;
   streak: number;

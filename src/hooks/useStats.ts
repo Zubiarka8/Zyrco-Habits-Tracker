@@ -64,6 +64,9 @@ export function useStats() {
     load();
   }, [load]);
 
+  // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Historial de estadísticas.
+  // Free tendrá máximo 30 días de historial (days clamped a PLAN_LIMITS[plan].statsDays).
+  // Cuando MONETIZATION_ACTIVE = true: days = Math.min(days, PLAN_LIMITS[plan].statsDays)
   const getHabitStats = useCallback(
     (habitId: string, days = 30): HabitStats => {
       const endDate = new Date();
