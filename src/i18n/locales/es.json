@@ -23,7 +23,12 @@
     "checkGood": "Marcar como hecho",
     "checkBad": "Marcar como evitado",
     "doneGood": "Hecho",
-    "doneBad": "Evitado"
+    "doneBad": "Evitado",
+    "viewMonthly": "Mensual",
+    "viewWeekly": "Semanal",
+    "viewDaily": "Diario",
+    "calToday": "Hoy",
+    "noHabitsDate": "No hay hábitos programados para este día."
   },
   "habits": {
     "title": "Mis Hábitos",

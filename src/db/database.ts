@@ -404,6 +404,24 @@ export async function fetchLogsForHabit(
   return rows.map(parseLog);
 }
 
+export async function fetchLogsForDateRange(
+  startDate: string,
+  endDate: string
+): Promise<Log[]> {
+  const db = await getDb();
+  try {
+    const rows = await db.select<RawLog[]>(
+      "SELECT * FROM logs WHERE date >= $1 AND date <= $2 ORDER BY date",
+      [startDate, endDate]
+    );
+    return rows.map(parseLog);
+  } catch (err) {
+    throw new Error(
+      `fetchLogsForDateRange(${startDate} → ${endDate}) failed: ${err}`
+    );
+  }
+}
+
 export async function fetchAllLogs(): Promise<Log[]> {
   const db = await getDb();
   const rows = await db.select<RawLog[]>(

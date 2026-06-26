@@ -23,7 +23,12 @@
     "checkGood": "Mark as done",
     "checkBad": "Mark as avoided",
     "doneGood": "Done",
-    "doneBad": "Avoided"
+    "doneBad": "Avoided",
+    "viewMonthly": "Monthly",
+    "viewWeekly": "Weekly",
+    "viewDaily": "Daily",
+    "calToday": "Today",
+    "noHabitsDate": "No habits scheduled for this day."
   },
   "habits": {
     "title": "My Habits",
