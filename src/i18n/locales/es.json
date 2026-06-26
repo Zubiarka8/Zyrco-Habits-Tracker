@@ -120,7 +120,9 @@
     "importError": "Archivo inválido. Asegúrate de que sea un export de Zyrco.",
     "reminderActive": "Recordatorios activos",
     "reminderInactive": "Recordatorios inactivos",
-    "enableReminders": "Activar recordatorios"
+    "enableReminders": "Activar recordatorios",
+    "session": "Sesión",
+    "signOut": "Cerrar sesión"
   },
   "common": {
     "save": "Guardar",

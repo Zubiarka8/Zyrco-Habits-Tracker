@@ -120,7 +120,9 @@
     "importError": "Invalid file. Make sure it is a Zyrco export.",
     "reminderActive": "Reminders active",
     "reminderInactive": "Reminders inactive",
-    "enableReminders": "Enable reminders"
+    "enableReminders": "Enable reminders",
+    "session": "Session",
+    "signOut": "Close / Sign out"
   },
   "common": {
     "save": "Save",

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   format,
@@ -14,25 +15,31 @@ import type { Habit, Log } from "../types";
 
 export type CalendarView = "monthly" | "weekly" | "daily";
 
-interface HabitCalendarProps {
+export interface HabitCalendarProps {
   view: CalendarView;
   viewDate: Date;
   selectedDate: string; // yyyy-MM-dd
   today: string;        // yyyy-MM-dd
   habits: Habit[];
-  rangeLogs: Log[];     // logs for the visible month/week
+  rangeLogs: Log[];
   onViewChange: (v: CalendarView) => void;
   onDateSelect: (date: string) => void;
   onNavigate: (dir: "prev" | "next") => void;
+  /** Optional — wired up for the weekly grid so you can toggle habits inline */
+  onToggle?: (habitId: string, date: string, currentCompleted: boolean) => void;
 }
 
-// ── Helpers ───────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────
 
+/**
+ * Returns whether a habit should appear on a given calendar day.
+ * Mirrors the same logic in Today.tsx so dots and rows stay in sync.
+ */
 function isHabitDueOnDay(habit: Habit, date: Date): boolean {
   if (habit.archived) return false;
-  const dow = date.getDay(); // 0 = Sun
+  const dow = date.getDay();
   if (habit.frequency === "daily") return true;
-  if (habit.frequency === "weekly") return dow === 1;
+  if (habit.frequency === "weekly") return dow === 1; // every Monday
   if (habit.frequency === "custom" && habit.target_days) {
     return habit.target_days.includes(dow);
   }
@@ -44,6 +51,10 @@ interface Dot {
   completed: boolean;
 }
 
+/**
+ * Produces one dot descriptor per habit that is due on `date`.
+ * Completed habits carry their color; pending ones are styled by CSS.
+ */
 function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
   const dateStr = format(date, "yyyy-MM-dd");
   return habits
@@ -59,25 +70,24 @@ function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
 // ── DayDots ───────────────────────────────────────────────
 
 /**
- * Renders up to MAX colored circles for habits on a given day.
- * Filled = completed, gray ring = pending.
- * When a day has more habits than MAX we swap dots for a "X/Y" ratio
- * because squeezing 10+ dots into a calendar cell is unreadable.
+ * Compact completion summary for a single calendar cell.
+ * Switches to "X/Y" text when habits outnumber available dot slots —
+ * avoids the visual chaos of 10+ tiny circles crammed into one cell.
  */
 function DayDots({ dots }: { dots: Dot[] }) {
   const MAX = 6;
   const completed = dots.filter((d) => d.completed).length;
   const total = dots.length;
-
   if (total === 0) return null;
 
-  // Too many habits to show dots clearly — show a readable ratio instead
   if (total > MAX) {
     return (
       <div className="cal-dots">
         <span
           className="cal-ratio"
-          style={completed === total ? { color: "var(--color-success)" } : undefined}
+          style={
+            completed === total ? { color: "var(--color-success)" } : undefined
+          }
         >
           {completed}/{total}
         </span>
@@ -98,8 +108,14 @@ function DayDots({ dots }: { dots: Dot[] }) {
   );
 }
 
-// ── Monthly view ──────────────────────────────────────────
+// ── Monthly grid ──────────────────────────────────────────
 
+/**
+ * Full month grid — 7 columns, cells grow to fill whatever height the parent
+ * gives them (used in the split layout where the parent constrains to 100vh).
+ * Clicking any cell calls onDateSelect which the parent uses to populate the
+ * day-detail panel on the right.
+ */
 function MonthView({
   viewDate,
   selectedDate,
@@ -117,8 +133,8 @@ function MonthView({
 }) {
   const { t } = useTranslation();
 
-  // Fill the grid from the Monday before the 1st to the Sunday after the last day.
-  // This always gives us complete weeks with no partial rows.
+  // Pad the grid so it always starts on Monday and ends on Sunday.
+  // This keeps the column count constant across all months.
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(viewDate), { weekStartsOn: 1 });
     const gridEnd = endOfWeek(endOfMonth(viewDate), { weekStartsOn: 1 });
@@ -144,9 +160,7 @@ function MonthView({
           const isSelected = dateStr === selectedDate;
           const dots = inMonth ? getDots(day, habits, rangeLogs) : [];
           const allDone =
-            inMonth &&
-            dots.length > 0 &&
-            dots.every((d) => d.completed);
+            inMonth && dots.length > 0 && dots.every((d) => d.completed);
 
           return (
             <button
@@ -162,7 +176,6 @@ function MonthView({
                 .join(" ")}
               onClick={() => onDateSelect(dateStr)}
             >
-              {/* Day number sits top-left so dots have the full bottom area */}
               <span className="cal-cell-num">{format(day, "d")}</span>
               <DayDots dots={dots} />
             </button>
@@ -173,15 +186,22 @@ function MonthView({
   );
 }
 
-// ── Weekly view ───────────────────────────────────────────
+// ── Weekly habit grid ─────────────────────────────────────
 
-function WeekView({
+/**
+ * Transposed week view: habits as rows, days as columns.
+ * Each cell shows the completion state and — if onToggle is wired — lets you
+ * check or uncheck the habit directly without leaving this view.
+ * This is the "big-screen" view: you see the whole week at a glance.
+ */
+function WeekHabitGrid({
   viewDate,
   selectedDate,
   today,
   habits,
   rangeLogs,
   onDateSelect,
+  onToggle,
 }: {
   viewDate: Date;
   selectedDate: string;
@@ -189,49 +209,136 @@ function WeekView({
   habits: Habit[];
   rangeLogs: Log[];
   onDateSelect: (d: string) => void;
+  onToggle?: (habitId: string, date: string, completed: boolean) => void;
 }) {
   const { t } = useTranslation();
 
-  const days = useMemo(() => {
+  const weekDays = useMemo(() => {
     const ws = startOfWeek(viewDate, { weekStartsOn: 1 });
     const we = endOfWeek(viewDate, { weekStartsOn: 1 });
     return eachDayOfInterval({ start: ws, end: we });
   }, [viewDate]);
 
-  return (
-    <div className="cal-week-strip">
-      {days.map((day) => {
-        const dateStr = format(day, "yyyy-MM-dd");
-        const isToday = dateStr === today;
-        const isSelected = dateStr === selectedDate;
-        const dots = getDots(day, habits, rangeLogs);
+  const activeHabits = habits.filter((h) => !h.archived);
 
-        return (
-          <button
-            key={dateStr}
-            className={[
-              "cal-week-col",
-              isToday ? "cal-cell--today" : "",
-              isSelected ? "cal-cell--selected" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => onDateSelect(dateStr)}
+  return (
+    <div className="hwg">
+      {/* ── Header: day columns ── */}
+      <div className="hwg-row hwg-header">
+        <div className="hwg-habit-col" />
+        {weekDays.map((day) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const isToday = dateStr === today;
+          const isSelected = dateStr === selectedDate;
+          return (
+            <button
+              key={dateStr}
+              className={[
+                "hwg-day-head",
+                isToday ? "hwg-day-head--today" : "",
+                isSelected ? "hwg-day-head--selected" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => onDateSelect(dateStr)}
+            >
+              <span className="hwg-day-name">
+                {t(`common.days.${day.getDay()}`)}
+              </span>
+              <span className="hwg-day-num">{format(day, "d")}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── One row per habit ── */}
+      {activeHabits.map((habit) => (
+        <div key={habit.id} className="hwg-row">
+          {/* Habit label — colored left border matches the habit's chosen color */}
+          <div
+            className="hwg-habit-label"
+            style={{ borderLeftColor: habit.color }}
           >
-            <span className="cal-week-day-name">
-              {t(`common.days.${day.getDay()}`)}
-            </span>
-            <span className="cal-cell-num">{format(day, "d")}</span>
-            <DayDots dots={dots} />
-          </button>
-        );
-      })}
+            <span className="hwg-habit-icon">{habit.icon}</span>
+            <span className="hwg-habit-name">{habit.name}</span>
+          </div>
+
+          {/* One cell per day */}
+          {weekDays.map((day) => {
+            const dateStr = format(day, "yyyy-MM-dd");
+            const due = isHabitDueOnDay(habit, day);
+            const isFuture = dateStr > today;
+            const log = rangeLogs.find(
+              (l) => l.habit_id === habit.id && l.date === dateStr
+            );
+            const completed = log?.completed ?? false;
+
+            if (!due) {
+              // Habit not scheduled for this weekday — render a visual gap
+              return <div key={dateStr} className="hwg-cell hwg-cell--skip" />;
+            }
+
+            return (
+              <button
+                key={dateStr}
+                className={[
+                  "hwg-cell",
+                  completed ? "hwg-cell--done" : "hwg-cell--pending",
+                  dateStr === today ? "hwg-cell--today" : "",
+                  isFuture ? "hwg-cell--future" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => {
+                  if (isFuture) return; // can't log future dates
+                  if (onToggle) {
+                    onToggle(habit.id, dateStr, completed);
+                  } else {
+                    onDateSelect(dateStr);
+                  }
+                }}
+                title={
+                  isFuture
+                    ? undefined
+                    : completed
+                    ? `Unmark ${habit.name}`
+                    : `Mark ${habit.name} as done`
+                }
+              >
+                {isFuture ? (
+                  // Future day — show a faint dot as placeholder
+                  <span
+                    className="hwg-future-dot"
+                    style={{ background: habit.color }}
+                  />
+                ) : completed ? (
+                  <CheckCircle2 size={20} style={{ color: habit.color }} />
+                ) : (
+                  <Circle size={20} className="hwg-pending-icon" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+
+      {/* Empty state — no habits yet */}
+      {activeHabits.length === 0 && (
+        <div className="hwg-empty">
+          <p>{t("today.noHabits")}</p>
+        </div>
+      )}
     </div>
   );
 }
 
 // ── HabitCalendar ─────────────────────────────────────────
 
+/**
+ * Top-level calendar shell. Renders the navigation header (prev/label/next +
+ * view toggle) and delegates the grid to MonthView or WeekHabitGrid.
+ * Daily mode only shows the nav so Today.tsx can render the habit list below.
+ */
 export function HabitCalendar({
   view,
   viewDate,
@@ -242,6 +349,7 @@ export function HabitCalendar({
   onViewChange,
   onDateSelect,
   onNavigate,
+  onToggle,
 }: HabitCalendarProps) {
   const { t } = useTranslation();
 
@@ -252,14 +360,10 @@ export function HabitCalendar({
       const we = endOfWeek(viewDate, { weekStartsOn: 1 });
       return `${format(ws, "MMM d")} – ${format(we, "MMM d, yyyy")}`;
     }
+    // Daily: show the selected date as the label
     const sel = parseISO(selectedDate + "T00:00:00");
     return format(sel, "EEEE, MMMM d, yyyy");
   }, [view, viewDate, selectedDate]);
-
-  const handleDateSelect = (dateStr: string) => {
-    onDateSelect(dateStr);
-    if (view !== "daily") onViewChange("daily");
-  };
 
   const VIEW_LABELS: Record<CalendarView, string> = {
     monthly: t("today.viewMonthly"),
@@ -267,16 +371,30 @@ export function HabitCalendar({
     daily: t("today.viewDaily"),
   };
 
+  const handleDateSelect = (dateStr: string) => {
+    onDateSelect(dateStr);
+    // Clicking a day in monthly/weekly jumps to daily view
+    if (view !== "daily") onViewChange("daily");
+  };
+
   return (
     <div className="cal-container">
-      {/* Navigation header */}
+      {/* ── Nav: prev | label | next + view toggle ── */}
       <div className="cal-nav">
         <div className="cal-nav-label">
-          <button className="cal-nav-btn" onClick={() => onNavigate("prev")}>
+          <button
+            className="cal-nav-btn"
+            onClick={() => onNavigate("prev")}
+            aria-label="Previous"
+          >
             ‹
           </button>
           <span className="cal-nav-title">{headerLabel}</span>
-          <button className="cal-nav-btn" onClick={() => onNavigate("next")}>
+          <button
+            className="cal-nav-btn"
+            onClick={() => onNavigate("next")}
+            aria-label="Next"
+          >
             ›
           </button>
         </div>
@@ -303,14 +421,16 @@ export function HabitCalendar({
           onDateSelect={handleDateSelect}
         />
       )}
+
       {view === "weekly" && (
-        <WeekView
+        <WeekHabitGrid
           viewDate={viewDate}
           selectedDate={selectedDate}
           today={today}
           habits={habits}
           rangeLogs={rangeLogs}
           onDateSelect={handleDateSelect}
+          onToggle={onToggle}
         />
       )}
     </div>

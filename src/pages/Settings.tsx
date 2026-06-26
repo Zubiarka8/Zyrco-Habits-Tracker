@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCategories } from "../hooks/useCategories";
 import { Modal } from "../components/Modal";
 import { ImportExport } from "../components/ImportExport";
-import { Plus, Trash2, Edit2 } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut } from "lucide-react";
 import type { Category } from "../types";
 
 // [FUTURO - PREMIUM ANUAL + LIFETIME] Temas visuales exclusivos (accent colors, dark variants especiales).
@@ -200,6 +201,25 @@ export function Settings() {
             <span className="setting-label">Zyrco</span>
             <span className="text-muted">Habit Tracker</span>
           </div>
+        </section>
+
+        {/* [FUTURO - AUTH] When auth is added this becomes a real logout.
+            For now it closes the Tauri window — same end result for a local app. */}
+        <section className="settings-section">
+          <h2 className="section-title">{t("settings.session")}</h2>
+          <button
+            className="btn btn-danger settings-signout"
+            onClick={async () => {
+              try {
+                await getCurrentWindow().close();
+              } catch (err) {
+                console.error("Failed to close window:", err);
+              }
+            }}
+          >
+            <LogOut size={16} />
+            {t("settings.signOut")}
+          </button>
         </section>
       </div>
 
