@@ -916,7 +916,8 @@ a { text-decoration: none; color: inherit; }
 
 /* ── Settings page ──────────────────────────────────────── */
 .settings-sections { display: flex; flex-direction: column; gap: 24px; }
-.settings-signout { align-self: flex-start; gap: 8px; }
+.settings-signout { gap: 8px; }
+.session-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 .settings-section {
   background: var(--color-surface);

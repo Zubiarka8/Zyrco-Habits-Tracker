@@ -176,7 +176,11 @@
     "reminderInactive": "Recordatorios inactivos",
     "enableReminders": "Activar recordatorios",
     "session": "Sesión",
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "changePassword": "Cambiar contraseña",
+    "currentPassword": "Contraseña actual",
+    "newPassword": "Nueva contraseña",
+    "pwChanged": "Contraseña cambiada correctamente"
   },
   "common": {
     "save": "Guardar",

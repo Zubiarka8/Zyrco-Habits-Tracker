@@ -128,6 +128,27 @@ export async function tursoFindUser(email: string): Promise<TursoUser | null> {
   return rows[0] ?? null;
 }
 
+export async function tursoUpdatePassword(
+  userId: string,
+  newHash: string,
+  newSalt: string
+): Promise<void> {
+  await initTursoUsersTable();
+  await tursoQuery(
+    "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
+    [newHash, newSalt, userId]
+  );
+}
+
+export async function tursoFindUserById(id: string): Promise<TursoUser | null> {
+  await initTursoUsersTable();
+  const rows = await tursoQuery<TursoUser>(
+    "SELECT id, email, password_hash, salt, created_at FROM users WHERE id = ? LIMIT 1",
+    [id]
+  );
+  return rows[0] ?? null;
+}
+
 export async function tursoCreateUser(
   id: string,
   email: string,

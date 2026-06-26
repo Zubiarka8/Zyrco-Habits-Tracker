@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { tursoEnabled, tursoFindUser, tursoCreateUser } from "../db/turso";
+import { tursoEnabled, tursoFindUser, tursoFindUserById, tursoCreateUser, tursoUpdatePassword } from "../db/turso";
 import { migrateLocalDataToUser } from "../db/database";
 import { generateSalt, hashPassword, verifyPassword } from "./crypto";
 
@@ -15,6 +15,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -96,13 +97,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(authUser);
   }, []);
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      if (!user) throw new Error("auth.notLoggedIn");
+      if (newPassword.length < 6) throw new Error("auth.errorPasswordShort");
+
+      const tursoUser = await tursoFindUserById(user.id);
+      if (!tursoUser) throw new Error("auth.userNotFound");
+
+      const valid = await verifyPassword(currentPassword, tursoUser.salt, tursoUser.password_hash);
+      if (!valid) throw new Error("auth.wrongPassword");
+
+      const newSalt = generateSalt();
+      const newHash = await hashPassword(newPassword, newSalt);
+      await tursoUpdatePassword(user.id, newHash, newSalt);
+    },
+    [user]
+  );
+
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

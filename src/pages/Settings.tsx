@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCategories } from "../hooks/useCategories";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, tursoEnabled } from "../auth/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/Modal";
 import { ImportExport } from "../components/ImportExport";
-import { Plus, Trash2, Edit2, LogOut } from "lucide-react";
+import { Plus, Trash2, Edit2, LogOut, KeyRound } from "lucide-react";
 import type { Category } from "../types";
 
 // [FUTURO - PREMIUM ANUAL + LIFETIME] Temas visuales exclusivos (accent colors, dark variants especiales).
@@ -24,7 +25,41 @@ type Theme = "light" | "dark" | "system";
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { categories, create, update, remove } = useCategories();
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
+  const { showToast } = useToast();
+
+  // ── Change password modal ─────────────────────────────────
+  const [changePwOpen, setChangePwOpen]   = useState(false);
+  const [currentPw, setCurrentPw]         = useState("");
+  const [newPw, setNewPw]                 = useState("");
+  const [confirmPw, setConfirmPw]         = useState("");
+  const [pwError, setPwError]             = useState("");
+  const [pwLoading, setPwLoading]         = useState(false);
+
+  const handleChangePassword = async () => {
+    setPwError("");
+    if (newPw.length < 6) {
+      setPwError(t("auth.errorPasswordShort"));
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwError(t("auth.errorPasswordMismatch"));
+      return;
+    }
+    setPwLoading(true);
+    try {
+      await changePassword(currentPw, newPw);
+      showToast(t("settings.pwChanged"), "success");
+      setChangePwOpen(false);
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("wrongPassword")) setPwError(t("auth.errorWrongPassword"));
+      else setPwError(t("common.error"));
+    } finally {
+      setPwLoading(false);
+    }
+  };
 
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("zyrco-theme") as Theme) ?? "system"
@@ -208,22 +243,90 @@ export function Settings() {
         <section className="settings-section">
           <h2 className="section-title">{t("settings.session")}</h2>
           {user && (
-            <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: 8 }}>
+            <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: 12 }}>
               {user.email}
             </p>
           )}
-          <button
-            className="btn btn-danger settings-signout"
-            onClick={() => {
-              logout();
-              getCurrentWindow().close().catch(() => {});
-            }}
-          >
-            <LogOut size={16} />
-            {t("settings.signOut")}
-          </button>
+          <div className="session-actions">
+            {tursoEnabled && user && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => { setPwError(""); setChangePwOpen(true); }}
+              >
+                <KeyRound size={15} />
+                {t("settings.changePassword")}
+              </button>
+            )}
+            <button
+              className="btn btn-danger settings-signout"
+              onClick={() => {
+                logout();
+                getCurrentWindow().close().catch(() => {});
+              }}
+            >
+              <LogOut size={16} />
+              {t("settings.signOut")}
+            </button>
+          </div>
         </section>
       </div>
+
+      {/* ── Change password modal ─────────────────────────── */}
+      <Modal
+        open={changePwOpen}
+        title={t("settings.changePassword")}
+        onClose={() => { setChangePwOpen(false); setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwError(""); }}
+        size="sm"
+      >
+        <div className="habit-form">
+          <div className="form-field">
+            <label className="field-label">{t("settings.currentPassword")}</label>
+            <input
+              type="password"
+              className="input"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="form-field">
+            <label className="field-label">{t("settings.newPassword")}</label>
+            <input
+              type="password"
+              className="input"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+              placeholder={t("auth.passwordPlaceholder")}
+            />
+          </div>
+          <div className="form-field">
+            <label className="field-label">{t("auth.confirmPassword")}</label>
+            <input
+              type="password"
+              className="input"
+              value={confirmPw}
+              onChange={(e) => setConfirmPw(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }}
+            />
+          </div>
+          {pwError && <p className="field-error">{pwError}</p>}
+          <div className="modal-actions">
+            <button
+              className="btn btn-ghost"
+              onClick={() => setChangePwOpen(false)}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleChangePassword}
+              disabled={pwLoading || !currentPw || !newPw || !confirmPw}
+            >
+              {pwLoading ? t("auth.loading") : t("common.save")}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={catFormOpen}
