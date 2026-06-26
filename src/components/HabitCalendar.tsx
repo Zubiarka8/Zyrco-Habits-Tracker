@@ -58,21 +58,42 @@ function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
 
 // ── DayDots ───────────────────────────────────────────────
 
+/**
+ * Renders up to MAX colored circles for habits on a given day.
+ * Filled = completed, gray ring = pending.
+ * When a day has more habits than MAX we swap dots for a "X/Y" ratio
+ * because squeezing 10+ dots into a calendar cell is unreadable.
+ */
 function DayDots({ dots }: { dots: Dot[] }) {
-  const MAX = 5;
-  const shown = dots.slice(0, MAX);
-  const extra = dots.length - MAX;
-  if (dots.length === 0) return null;
+  const MAX = 6;
+  const completed = dots.filter((d) => d.completed).length;
+  const total = dots.length;
+
+  if (total === 0) return null;
+
+  // Too many habits to show dots clearly — show a readable ratio instead
+  if (total > MAX) {
+    return (
+      <div className="cal-dots">
+        <span
+          className="cal-ratio"
+          style={completed === total ? { color: "var(--color-success)" } : undefined}
+        >
+          {completed}/{total}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="cal-dots">
-      {shown.map((d, i) => (
+      {dots.map((d, i) => (
         <span
           key={i}
           className={`cal-dot ${d.completed ? "cal-dot--done" : "cal-dot--pending"}`}
           style={d.completed ? { background: d.color } : undefined}
         />
       ))}
-      {extra > 0 && <span className="cal-dot-extra">+{extra}</span>}
     </div>
   );
 }
@@ -96,15 +117,15 @@ function MonthView({
 }) {
   const { t } = useTranslation();
 
-  // Week starts Monday — fill grid to 6 full weeks
+  // Fill the grid from the Monday before the 1st to the Sunday after the last day.
+  // This always gives us complete weeks with no partial rows.
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(viewDate), { weekStartsOn: 1 });
     const gridEnd = endOfWeek(endOfMonth(viewDate), { weekStartsOn: 1 });
     return eachDayOfInterval({ start: gridStart, end: gridEnd });
   }, [viewDate]);
 
-  // Mon–Sun order for header
-  const weekDays = [1, 2, 3, 4, 5, 6, 0];
+  const weekDays = [1, 2, 3, 4, 5, 6, 0]; // Mon → Sun
 
   return (
     <div className="cal-month">
@@ -122,6 +143,10 @@ function MonthView({
           const isToday = dateStr === today;
           const isSelected = dateStr === selectedDate;
           const dots = inMonth ? getDots(day, habits, rangeLogs) : [];
+          const allDone =
+            inMonth &&
+            dots.length > 0 &&
+            dots.every((d) => d.completed);
 
           return (
             <button
@@ -131,11 +156,13 @@ function MonthView({
                 !inMonth ? "cal-cell--other" : "",
                 isToday ? "cal-cell--today" : "",
                 isSelected ? "cal-cell--selected" : "",
+                allDone ? "cal-cell--all-done" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               onClick={() => onDateSelect(dateStr)}
             >
+              {/* Day number sits top-left so dots have the full bottom area */}
               <span className="cal-cell-num">{format(day, "d")}</span>
               <DayDots dots={dots} />
             </button>

@@ -94,6 +94,9 @@
 - If the error affects other files or modules: flag it
 - Always implement explicit error handling, never silence exceptions
 - Error logs must be informative: what failed, where, with what data
+- Every function that can fail needs its own try-catch — if 10 are needed, write 10
+- Never use 2-3 generic catch blocks to cover unrelated failure paths
+- Each catch must handle the specific error for that operation (DB error ≠ parse error ≠ network error)
 
 # TESTING AND QUALITY
 - If I write code without tests and it should have them: suggest it
@@ -118,11 +121,16 @@
 - Always differentiate between "works now" and "sustainable long-term"
 
 # DOCUMENTATION
-- If I create a complex function: add minimal JSDoc/docstring
-- If I create an API endpoint: document params, response and possible errors
-- If I create a script: add usage comment at the top
-- If there's non-obvious configuration: comment why that value and not another
-- Update README if you add relevant functionality
+- **Prohibido**: documentar como IA, robótico o genérico ("Esta función procesa X y devuelve Y")
+- **Obligatorio**: escribir como un humano que explica el POR QUÉ, no el QUÉ — el código ya muestra el qué
+- Cada función que se crea se documenta en el mismo momento, sin excepciones
+- Si la lógica interna no es obvia, documentar dentro de la función también
+- Cero funciones sin documentar — incluidas las pequeñas; mínimo una línea
+- Violación: crear una función y dejar la documentación para después
+- Si creo un endpoint API: documentar params, respuesta y errores posibles
+- Si creo un script: comentario de uso al principio
+- Si hay configuración no obvia: explicar por qué ese valor y no otro
+- Actualizar README si se añade funcionalidad relevante
 
 # GIT AND VERSION CONTROL
 - Commit messages in English, format: type(scope): short description

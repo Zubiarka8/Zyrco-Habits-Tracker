@@ -1001,60 +1001,72 @@ a { text-decoration: none; color: inherit; }
 .cal-grid-head {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 6px;
 }
 
 .cal-head-cell {
   text-align: center;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--color-muted);
   padding: 4px 0;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .06em;
 }
 
 .cal-month-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 3px;
 }
 
-/* Shared cell base */
+/* Shared cell base — height scales with viewport width so large screens get
+   spacious cells automatically without hardcoding a px value */
 .cal-cell {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 6px 2px;
+  align-items: flex-start;   /* day number top-left, feels like a real calendar */
+  justify-content: space-between;
+  gap: 4px;
+  padding: 8px 8px 6px;
   border: none;
-  background: transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.12s;
-  min-height: 52px;
+  min-height: clamp(60px, 8vw, 110px);  /* compact on small, generous on large */
+  background: transparent;
+  border: 1px solid transparent;
 }
 .cal-cell:hover { background: var(--color-surface-alt); }
-.cal-cell--other { opacity: .35; pointer-events: none; }
+.cal-cell--other {
+  opacity: .25;
+  pointer-events: none;
+}
+.cal-cell--today {
+  border-color: var(--color-primary);
+}
 .cal-cell--today .cal-cell-num {
   background: var(--color-primary);
   color: #fff;
   border-radius: 50%;
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .cal-cell--selected {
   background: var(--color-primary-muted);
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
+  border-color: var(--color-primary);
+}
+/* Subtle green tint when every due habit was completed that day */
+.cal-cell--all-done {
+  background: rgba(34, 197, 94, .07);
+}
+.cal-cell--all-done.cal-cell--selected {
+  background: var(--color-primary-muted);
 }
 
 .cal-cell-num {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--color-text);
   width: 26px;
   height: 26px;
@@ -1062,33 +1074,35 @@ a { text-decoration: none; color: inherit; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 50%;
 }
 
-/* Completion dots */
+/* Completion dots — wrap freely so they fill the available cell width */
 .cal-dots {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
-  justify-content: center;
-  max-width: 40px;
+  gap: 3px;
+  align-items: center;
+  width: 100%;
 }
 
 .cal-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 .cal-dot--done { opacity: 1; }
 .cal-dot--pending {
   background: var(--color-border) !important;
-  opacity: .6;
+  opacity: .5;
 }
 
-.cal-dot-extra {
-  font-size: 9px;
+/* Shown instead of dots when a day has many habits (cleaner than cramming 10+ dots) */
+.cal-ratio {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--color-muted);
-  line-height: 6px;
 }
 
 /* Week strip */
