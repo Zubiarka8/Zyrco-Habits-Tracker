@@ -14,7 +14,7 @@ import {
 } from "date-fns";
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
-  MoreVertical, Edit2, Archive, ArchiveRestore, Trash2,
+  MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
@@ -116,6 +116,16 @@ function HabitList({
                   {habit.description && (
                     <span className="habit-desc">{habit.description}</span>
                   )}
+                </div>
+              )}
+
+              {habit.time_start && (
+                <div className="habit-time">
+                  <Clock size={11} />
+                  <span>
+                    {habit.time_start}
+                    {habit.time_end ? ` – ${habit.time_end}` : ""}
+                  </span>
                 </div>
               )}
 

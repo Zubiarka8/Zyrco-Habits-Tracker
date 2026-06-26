@@ -268,6 +268,11 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   );
   const [reminderTime, setReminderTime] = useState(initial?.reminder_time ?? "08:00");
 
+  const [timeEnabled, setTimeEnabled] = useState(!!initial?.time_start);
+  const [timeStart, setTimeStart]     = useState(initial?.time_start ?? "08:00");
+  const [timeEndEnabled, setTimeEndEnabled] = useState(!!initial?.time_end);
+  const [timeEnd, setTimeEnd]         = useState(initial?.time_end ?? "09:00");
+
   const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const toggleDay = (day: number) => {
@@ -342,6 +347,8 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       type: habitType,
       reminder_enabled: reminderEnabled,
       reminder_time: reminderEnabled ? reminderTime : null,
+      time_start: timeEnabled ? timeStart : null,
+      time_end: timeEnabled && timeEndEnabled ? timeEnd : null,
     });
   };
 
@@ -661,6 +668,55 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Schedule (start / end time) */}
+      <div className="form-field">
+        <label className="field-label field-row">
+          <span>{t("habits.scheduleLabel")}</span>
+          <input
+            type="checkbox"
+            checked={timeEnabled}
+            onChange={(e) => {
+              setTimeEnabled(e.target.checked);
+              if (!e.target.checked) setTimeEndEnabled(false);
+            }}
+            className="checkbox"
+          />
+        </label>
+        {timeEnabled && (
+          <div className="schedule-time-row">
+            <div className="form-field flex-1">
+              <label className="field-label">{t("habits.scheduleStart")}</label>
+              <input
+                type="time"
+                className="input"
+                value={timeStart}
+                onChange={(e) => setTimeStart(e.target.value)}
+              />
+            </div>
+            <div className="form-field flex-1">
+              <label className="field-label field-row">
+                <span>{t("habits.scheduleEnd")}</span>
+                <input
+                  type="checkbox"
+                  checked={timeEndEnabled}
+                  onChange={(e) => setTimeEndEnabled(e.target.checked)}
+                  className="checkbox"
+                />
+              </label>
+              {timeEndEnabled && (
+                <input
+                  type="time"
+                  className="input"
+                  value={timeEnd}
+                  min={timeStart}
+                  onChange={(e) => setTimeEnd(e.target.value)}
+                />
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reminder */}

@@ -166,6 +166,12 @@ async function initSchema(database: Database): Promise<void> {
   if (!habitColNames.has("end_date")) {
     await database.execute("ALTER TABLE habits ADD COLUMN end_date TEXT");
   }
+  if (!habitColNames.has("time_start")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN time_start TEXT");
+  }
+  if (!habitColNames.has("time_end")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN time_end TEXT");
+  }
 
   // Migration: add user_id to all tables (per-user data partitioning)
   const localId = getLocalUserId();
@@ -413,8 +419,9 @@ export async function insertHabit(
   const sql = `INSERT INTO habits
       (id, name, description, category_id, frequency, custom_type, target_days,
        interval_days, start_date, end_date, color, icon,
-       type, reminder_enabled, reminder_time, created_at, archived, user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,0,$17)`;
+       type, reminder_enabled, reminder_time, time_start, time_end,
+       created_at, archived, user_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,0,$19)`;
   const params = [
     id,
     data.name,
@@ -431,6 +438,8 @@ export async function insertHabit(
     data.type,
     data.reminder_enabled ? 1 : 0,
     data.reminder_time ?? null,
+    data.time_start ?? null,
+    data.time_end ?? null,
     created_at,
     getLocalUserId(),
   ];

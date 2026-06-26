@@ -27,6 +27,10 @@ export interface Habit {
   type: "good" | "bad" | "normal";
   reminder_enabled: boolean;
   reminder_time: string | null;
+  /** HH:MM — optional start time shown on the habit row */
+  time_start: string | null;
+  /** HH:MM — optional end time; only meaningful when time_start is set */
+  time_end: string | null;
   created_at: string;
   archived: boolean;
 }
