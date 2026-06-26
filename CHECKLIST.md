@@ -5,12 +5,51 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 ---
 
 ## 🔐 Authentication
+- ⬜ Anonymous login ("Continue without account") — full app access, data stored locally only
+- ⬜ Anonymous → registered account upgrade (keep all local data)
 - ⬜ Login screen (email + password)
 - ⬜ Registration
 - ⬜ Forgot password / reset
 - ⬜ Session persistence (stay logged in)
+- ⬜ OAuth (Google / Apple)
 - ⬜ Logout
 - ⬜ Profile page (name, avatar)
+
+> **Design rule:** anonymous users get the full core experience. Account is only required for cloud sync, cross-device, and premium features — never forced on first launch.
+
+---
+
+## 👤 User Roles
+- ⬜ **Free** tier definition:
+  - ⬜ Unlimited habits (no cap)
+  - ⬜ Local storage only
+  - ⬜ Basic stats (7 / 30 days)
+  - ⬜ Non-intrusive ads (banner bottom, never in habit flow)
+- ⬜ **Premium** tier definition:
+  - ⬜ No ads
+  - ⬜ Cloud sync + multi-device
+  - ⬜ Full stats (90 days + heatmap + correlation)
+  - ⬜ Export (PDF, CSV, PNG)
+  - ⬜ Advanced reminders (streak alerts, weekly report)
+  - ⬜ Streak freeze
+  - ⬜ Gamification (XP, badges, leaderboard)
+- ⬜ Role stored in user profile (local + cloud)
+- ⬜ Premium purchase flow (in-app subscription or one-time)
+- ⬜ Premium badge in profile
+- ⬜ Restore purchase
+
+---
+
+## 💰 Monetization (non-intrusive ads)
+> **Constraint:** ads must never interrupt the check-in flow, appear inside modals, block content, or auto-play audio/video.
+
+- ⬜ Ad SDK integrated (AdMob for mobile, custom web ads for browser)
+- ⬜ Banner ad — bottom of Stats page only (free users)
+- ⬜ Banner ad — bottom of Settings page only (free users)
+- ⬜ Interstitial ad — only on app open, max once per day (free users)
+- ⬜ "Remove ads" upsell CTA — shown in settings, never as a popup
+- ⬜ Ads completely hidden for premium users
+- ⬜ Ad-free during active check-in (Today page always ad-free)
 
 ---
 
@@ -66,7 +105,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ✅ Current streak per habit
 - ✅ Streak badge (color changes at 7 and 30 days)
 - ⬜ Best streak per habit (tracked in DB, not shown in Today)
-- ⬜ Streak freeze (skip one day without breaking streak)
+- ⬜ Streak freeze — skip one day without breaking streak 🔒 Premium
 - ⬜ Streak milestone notifications (7, 30, 60, 100 days)
 
 ---
@@ -76,9 +115,9 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ✅ Per-habit completion rate with progress bar
 - ✅ Overall current streak and best streak
 - ✅ Total completions count
-- ⬜ Calendar heatmap (GitHub-style)
-- ⬜ Best day of the week (which weekday you complete most)
-- ⬜ Habit correlation (do you complete habit A when you complete B?)
+- ⬜ Calendar heatmap (GitHub-style) 🔒 Premium
+- ⬜ Best day of the week 🔒 Premium
+- ⬜ Habit correlation 🔒 Premium
 - ⬜ Monthly summary view
 - ⬜ "Good vs Bad" habit balance chart
 
@@ -89,8 +128,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - 🔧 OS notification permission request (Settings page done)
 - ⬜ Actually schedule notifications at the set time
 - ⬜ "Daily summary" notification (e.g. 9 PM: "You have 3 habits pending")
-- ⬜ Streak at-risk alert (if you haven't checked in by evening)
-- ⬜ Weekly report notification
+- ⬜ Streak at-risk alert 🔒 Premium
+- ⬜ Weekly report notification 🔒 Premium
 
 ---
 
@@ -104,19 +143,19 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 
 ## 📤 Export
 - ⬜ Export all habits to JSON
-- ⬜ Export all habits to CSV
-- ⬜ Export check-in history to CSV
-- ⬜ Export stats as PDF report
-- ⬜ Export stats chart as image (PNG)
+- ⬜ Export all habits to CSV 🔒 Premium
+- ⬜ Export check-in history to CSV 🔒 Premium
+- ⬜ Export stats as PDF report 🔒 Premium
+- ⬜ Export stats chart as image (PNG) 🔒 Premium
 
 ---
 
 ## 🏆 Gamification
-- ⬜ Points / XP per check-in
-- ⬜ Level system (based on total XP)
-- ⬜ Achievement badges (e.g. "7-day streak", "First bad habit broken")
-- ⬜ Weekly challenge
-- ⬜ Leaderboard (if multi-user / cloud)
+- ⬜ Points / XP per check-in 🔒 Premium
+- ⬜ Level system (based on total XP) 🔒 Premium
+- ⬜ Achievement badges (e.g. "7-day streak", "First bad habit broken") 🔒 Premium
+- ⬜ Weekly challenge 🔒 Premium
+- ⬜ Leaderboard (requires cloud + account) 🔒 Premium
 
 ---
 
@@ -137,6 +176,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ⬜ Custom accent color
 - ⬜ Compact / comfortable density toggle
 - ⬜ Custom app icon
+- ⬜ Responsive layout for small screens (tablet / mobile web)
 
 ---
 
@@ -153,28 +193,38 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 ---
 
 ## ☁️ Sync & Multi-device
-- ⬜ Cloud sync (Supabase or similar)
-- ⬜ Multi-device support (Windows + Android)
+- ⬜ Cloud sync (Supabase) 🔒 Premium + account required
 - ⬜ Offline-first with sync on reconnect
-- ⬜ Conflict resolution
+- ⬜ Conflict resolution (last-write-wins or manual merge)
+- ⬜ Sync status indicator in UI
+
+---
+
+## 📱 Platform Support
+> Target: same codebase across all platforms via Tauri (desktop) + Tauri Mobile + responsive web build.
+
+- ✅ Windows — dev build running
+- ⬜ Windows — production .exe installer
+- ⬜ macOS — build tested (.dmg)
+- ⬜ Linux — build tested (.AppImage / .deb)
+- ⬜ Android — APK via Tauri Mobile
+- ⬜ iOS — IPA via Tauri Mobile (requires macOS + Apple Developer account)
+- ⬜ Web app (PWA) — browser build with localStorage fallback
+- ⬜ PWA installable (manifest + service worker)
+- ⬜ GitHub Releases with auto-update (Tauri updater plugin)
+- ⬜ Play Store submission
+- ⬜ App Store submission (iOS)
+
+> **Architecture note:** the web build will replace SQLite with IndexedDB or Supabase. Mobile uses Tauri Mobile with the same SQLite plugin.
 
 ---
 
 ## 🧪 Quality
 - ⬜ Unit tests (Vitest — hooks and DB layer)
 - ⬜ E2E tests (Playwright)
-- ⬜ CI pipeline (GitHub Actions)
+- ⬜ CI pipeline (GitHub Actions — type check + tests on PR)
 - ⬜ Error boundary (catch React crashes gracefully)
 - ⬜ Loading skeletons instead of "Loading..." text
-
----
-
-## 📦 Distribution
-- ✅ Windows: dev build running
-- ⬜ Windows: production .exe installer tested
-- ⬜ macOS: build tested
-- ⬜ GitHub Releases with auto-update (Tauri updater plugin)
-- ⬜ Android build (Tauri mobile)
 
 ---
 
@@ -182,21 +232,37 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 
 | Area | Done | Partial | Pending |
 |---|---|---|---|
-| Authentication | 0 | 0 | 6 |
-| Habit creation | 5 | 0 | 5 |
+| Authentication | 0 | 0 | 9 |
+| User roles | 0 | 0 | 14 |
+| Monetization | 0 | 0 | 7 |
+| Habit creation | 5 | 0 | 4 |
 | Categories | 4 | 0 | 3 |
-| Frequency | 3 | 0 | 5 |
-| Daily check-in | 5 | 0 | 5 |
+| Frequency | 3 | 0 | 4 |
+| Daily check-in | 5 | 0 | 4 |
 | Streaks | 2 | 0 | 3 |
 | Statistics | 4 | 0 | 5 |
-| Reminders | 0 | 3 | 3 |
+| Reminders | 0 | 2 | 4 |
 | Import | 0 | 0 | 4 |
 | Export | 0 | 0 | 5 |
 | Gamification | 0 | 0 | 5 |
 | i18n & a11y | 3 | 0 | 3 |
-| Appearance | 3 | 0 | 3 |
+| Appearance | 3 | 0 | 4 |
 | Data management | 3 | 0 | 5 |
 | Sync | 0 | 0 | 4 |
+| Platform support | 1 | 0 | 10 |
 | Quality | 0 | 0 | 5 |
-| Distribution | 1 | 0 | 4 |
-| **Total** | **33** | **3** | **78** |
+| **Total** | **33** | **2** | **102** |
+
+---
+
+## 🗺️ Suggested build order
+
+| Phase | Focus | Prerequisite |
+|---|---|---|
+| **1 — Core** | Habit type Good/Bad, import/export JSON, reminder scheduling | — |
+| **2 — Auth** | Anonymous login, email login, account upgrade | — |
+| **3 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |
+| **4 — Platform** | Responsive layout, web PWA build, Linux/macOS builds | Core |
+| **5 — Mobile** | Android APK via Tauri Mobile | Platform |
+| **6 — Cloud** | Supabase sync, multi-device | Auth + Mobile |
+| **7 — Premium features** | Heatmap, streak freeze, gamification, PDF export | Cloud |
