@@ -131,22 +131,38 @@
 - If there are files that shouldn't be committed: add them to .gitignore
 - Suggest committing before large refactors
 
-# PROJECT STACK — customize per project
-- Stack: [DEFINE]
-- Main versions: [DEFINE]
-- Code conventions: [DEFINE]
-- Folder structure: [DEFINE]
-- Frequent commands: [DEFINE]
-- Required environment variables: [DEFINE]
-- External services used: [DEFINE]
-- Tests: [framework / how to run them]
-- Deploy: [how and where]
-- CI/CD: [pipeline used]
-- Database: [engine / ORM used]
-- Authentication: [system used]
-- External APIs: [list]
+# PROJECT STACK
+- Stack: Tauri 2 + React 18 + TypeScript + Vite
+- Main versions: Tauri 2.x, React 19, TypeScript 5.8, Vite 7, Rust 1.96
+- Code conventions: English code, English comments. UI strings in ES/EN via i18n keys.
+- Folder structure:
+  - `src/` — React frontend
+    - `components/` — reusable UI (Modal, HabitForm, Sidebar, Layout, NoteModal, StreakBadge)
+    - `pages/` — Today, Habits, Stats, Settings
+    - `hooks/` — useHabits, useCategories, useLogs, useStats
+    - `db/` — database.ts (SQLite singleton, all CRUD)
+    - `types/` — index.ts (Category, Habit, Log, HabitWithMeta, HabitStats)
+    - `i18n/` — i18n setup + locales/en.json + locales/es.json
+  - `src-tauri/` — Rust backend (Tauri shell, plugins)
+- Frequent commands:
+  - Dev: `npm run tauri dev`
+  - Type check: `npx tsc --noEmit`
+  - Build: `npm run tauri build`
+- Required environment variables: none (local SQLite, no external services)
+- External services: none
+- Tests: none yet — suggest Vitest for hooks, Playwright for e2e
+- Deploy: Tauri bundler (`npm run tauri build`) → .exe installer for Windows
+- CI/CD: none yet
+- Database: SQLite via `@tauri-apps/plugin-sql`. DB file at `%APPDATA%/com.zubia.zyrco/zyrco.db`
+  - Tables: `categories`, `habits`, `logs`
+  - No ORM — raw SQL via plugin
+- Authentication: none
+- External APIs: none
+- i18n: react-i18next. Language stored in `localStorage` key `zyrco-language`
+- Theme: CSS custom properties + `data-theme` attribute on `<html>`. Stored in `localStorage` key `zyrco-theme`
 
-# GAPS AND PENDING — Claude updates this during the project
-- [Claude notes here any doubts, inconsistencies or pending decisions]
-- [Updated as new gaps or direction changes appear]
-- [Include approximate date if relevant]
+# GAPS AND PENDING
+- 2026-06-26: Reminders scheduled (plugin installed, UI toggle done) but OS notification scheduling not yet wired — needs background polling or Tauri cron equivalent
+- 2026-06-26: No tests — Vitest setup pending
+- 2026-06-26: App icon still uses Tauri default — custom icon pending
+- 2026-06-26: Production build untested (dev build blocked by MSVC until today)
