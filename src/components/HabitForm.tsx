@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { format, addDays } from "date-fns";
 import { Plus, X, Check } from "lucide-react";
 import { insertCategory } from "../db/database";
+import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit, Category } from "../types";
 
 const COLORS = [
@@ -148,6 +150,85 @@ function QuickCategoryForm({ onCreated, onCancel }: QuickCatFormProps) {
   );
 }
 
+// ── SchedulePreview ───────────────────────────────────────
+
+/**
+ * Shows the next 14 days, highlighting which ones the habit would fire on,
+ * based on the current form values. Uses isHabitDueOnDay so the preview
+ * matches exactly what will appear in Today.
+ */
+function SchedulePreview({
+  frequency,
+  customType,
+  targetDays,
+  intervalDays,
+  startDate,
+  color,
+}: {
+  frequency: Habit["frequency"];
+  customType: Habit["custom_type"];
+  targetDays: number[];
+  intervalDays: number;
+  startDate: string;
+  color: string;
+}) {
+  const { t } = useTranslation();
+  const today = new Date();
+  const refDate = startDate || format(today, "yyyy-MM-dd");
+
+  const fakeHabit = {
+    id: "__preview__",
+    name: "",
+    description: null,
+    category_id: null,
+    frequency,
+    custom_type: customType,
+    target_days: targetDays.length > 0 ? targetDays : null,
+    interval_days: intervalDays,
+    start_date: refDate,
+    end_date: null,
+    color,
+    icon: "⭐",
+    type: "normal" as const,
+    reminder_enabled: false,
+    reminder_time: null,
+    created_at: refDate + "T00:00:00",
+    archived: false,
+  } as Habit;
+
+  const days = Array.from({ length: 14 }, (_, i) => addDays(today, i));
+  const hasSomeDue = days.some((d) => isHabitDueOnDay(fakeHabit, d));
+  if (!hasSomeDue) return null;
+
+  return (
+    <div className="schedule-preview">
+      <span className="schedule-preview-label">{t("habits.upcomingPreview")}</span>
+      <div className="schedule-preview-strip">
+        {days.map((d, i) => {
+          const active  = isHabitDueOnDay(fakeHabit, d);
+          const isToday = i === 0;
+          return (
+            <div
+              key={i}
+              className={[
+                "schedule-preview-day",
+                active  ? "schedule-preview-day--active" : "",
+                isToday ? "schedule-preview-day--today"  : "",
+              ].filter(Boolean).join(" ")}
+              style={active ? { background: color, borderColor: color } : undefined}
+            >
+              <span className="schedule-preview-name">
+                {t(`common.days.${d.getDay()}`)}
+              </span>
+              <span className="schedule-preview-num">{format(d, "d")}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── HabitForm ─────────────────────────────────────────────
 
 export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormProps) {
@@ -187,10 +268,22 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   );
   const [reminderTime, setReminderTime] = useState(initial?.reminder_time ?? "08:00");
 
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
   const toggleDay = (day: number) => {
     setTargetDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
     );
+    setScheduleError(null);
+  };
+
+  const handleFrequencyChange = (f: Habit["frequency"]) => {
+    setFrequency(f);
+    setScheduleError(null);
+    if (f === "weekly") {
+      // Weekly = single-day selection; keep first selected or default to Monday
+      setTargetDays((prev) => (prev.length > 0 ? [prev[0]] : [1]));
+    }
   };
 
   const handleCategoryCreated = (cat: Category) => {
@@ -203,9 +296,27 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
     e.preventDefault();
     if (!name.trim()) return;
 
+    // Validate day selections
+    if (frequency === "weekly" && targetDays.length === 0) {
+      setScheduleError("Selecciona un día de la semana");
+      return;
+    }
+    if (
+      frequency === "custom" &&
+      (customType === "weekdays" || customType === "month_days") &&
+      targetDays.length === 0
+    ) {
+      setScheduleError("Selecciona al menos un día");
+      return;
+    }
+
     let resolvedCustomType: Habit["custom_type"] = null;
     let resolvedTargetDays: number[] | null = null;
     let resolvedIntervalDays: number | null = null;
+
+    if (frequency === "weekly") {
+      resolvedTargetDays = targetDays.length > 0 ? [targetDays[0]] : [1];
+    }
 
     if (frequency === "custom") {
       resolvedCustomType = customType;
@@ -351,7 +462,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
           <select
             className="select"
             value={frequency}
-            onChange={(e) => setFrequency(e.target.value as Habit["frequency"])}
+            onChange={(e) => handleFrequencyChange(e.target.value as Habit["frequency"])}
           >
             <option value="daily">{t("habits.daily")}</option>
             <option value="weekly">{t("habits.weekly")}</option>
@@ -359,6 +470,34 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
           </select>
         </div>
       </div>
+
+      {/* Weekly — pick which day of the week */}
+      {frequency === "weekly" && (
+        <div className="form-field">
+          <label className="field-label">{t("habits.targetDays")}</label>
+          <div className="day-picker">
+            {WEEKDAYS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`day-btn ${targetDays[0] === d ? "day-btn-active" : ""}`}
+                onClick={() => { setTargetDays([d]); setScheduleError(null); }}
+              >
+                {t(`common.days.${d}`)}
+              </button>
+            ))}
+          </div>
+          <SchedulePreview
+            frequency="weekly"
+            customType={null}
+            targetDays={targetDays}
+            intervalDays={intervalDays}
+            startDate={startDate}
+            color={color}
+          />
+          {scheduleError && <p className="field-error">{scheduleError}</p>}
+        </div>
+      )}
 
       {/* Custom schedule sub-options */}
       {frequency === "custom" && (
@@ -394,75 +533,75 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
                   </button>
                 ))}
               </div>
+              {scheduleError && <p className="field-error">{scheduleError}</p>}
+              <SchedulePreview
+                frequency="custom"
+                customType="weekdays"
+                targetDays={targetDays}
+                intervalDays={intervalDays}
+                startDate={startDate}
+                color={color}
+              />
             </div>
           )}
 
           {customType === "month_days" && (
             <div className="form-field">
               <label className="field-label">{t("habits.targetMonthDays")}</label>
-              <div className="month-day-picker">
+              <div className="month-day-grid">
                 {MONTH_DAYS.map((d) => (
                   <button
                     key={d}
                     type="button"
                     className={`month-day-btn ${targetDays.includes(d) ? "month-day-btn--active" : ""}`}
-                    style={targetDays.includes(d) ? { background: color } : undefined}
+                    style={targetDays.includes(d) ? { background: color, borderColor: color } : undefined}
                     onClick={() => toggleDay(d)}
                   >
                     {d}
                   </button>
                 ))}
               </div>
-
-              {/* Preview: today + 7 days */}
-              {targetDays.length > 0 && (() => {
-                const today = new Date();
-                const days = Array.from({ length: 8 }, (_, i) => {
-                  const d = new Date(today);
-                  d.setDate(today.getDate() + i);
-                  return d;
-                });
-                const WEEKDAY = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-                return (
-                  <div className="month-days-preview">
-                    <span className="month-days-preview-label">{t("habits.upcomingPreview")}</span>
-                    <div className="month-days-preview-row">
-                      {days.map((d, i) => {
-                        const dom = d.getDate();
-                        const active = targetDays.includes(dom);
-                        return (
-                          <div
-                            key={i}
-                            className={`month-days-preview-day ${active ? "month-days-preview-day--active" : ""} ${i === 0 ? "month-days-preview-day--today" : ""}`}
-                            style={active ? { background: color, borderColor: color } : undefined}
-                          >
-                            <span className="month-days-preview-weekday">{WEEKDAY[d.getDay()]}</span>
-                            <span className="month-days-preview-dom">{dom}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
+              {scheduleError && <p className="field-error">{scheduleError}</p>}
+              <SchedulePreview
+                frequency="custom"
+                customType="month_days"
+                targetDays={targetDays}
+                intervalDays={intervalDays}
+                startDate={startDate}
+                color={color}
+              />
             </div>
           )}
 
           {customType === "interval" && (
             <div className="form-field">
               <label className="field-label">{t("habits.intervalDays")}</label>
-              <div className="interval-row">
-                <span className="interval-label">{t("habits.intervalEvery")}</span>
-                <input
-                  className="input interval-input"
-                  type="number"
-                  min={1}
-                  max={365}
-                  value={intervalDays}
-                  onChange={(e) => setIntervalDays(Math.max(1, parseInt(e.target.value) || 1))}
-                />
-                <span className="interval-label">{t("habits.intervalDaysLabel")}</span>
+              <div className="interval-stepper">
+                <button
+                  type="button"
+                  className="interval-btn"
+                  onClick={() => setIntervalDays((v) => Math.max(1, v - 1))}
+                >
+                  −
+                </button>
+                <span className="interval-value">{intervalDays}</span>
+                <button
+                  type="button"
+                  className="interval-btn"
+                  onClick={() => setIntervalDays((v) => Math.min(365, v + 1))}
+                >
+                  +
+                </button>
+                <span className="interval-unit">{t("habits.intervalDaysLabel")}</span>
               </div>
+              <SchedulePreview
+                frequency="custom"
+                customType="interval"
+                targetDays={[]}
+                intervalDays={intervalDays}
+                startDate={startDate}
+                color={color}
+              />
             </div>
           )}
 

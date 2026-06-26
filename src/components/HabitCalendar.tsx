@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckCircle2, XCircle, Circle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   format,
@@ -43,16 +43,51 @@ interface Dot {
   completed: boolean;
 }
 
-function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
+type DayStatus = "all-done" | "bad-done" | "partial";
+
+interface DayInfo {
+  dots: Dot[];
+  status: DayStatus;
+}
+
+/**
+ * Returns dots + a status for a calendar day:
+ * - "all-done" → all good/neutral habits completed AND no bad habit was clicked
+ * - "bad-done" → at least one bad habit was actively clicked (completed = true)
+ * - "partial"  → everything else
+ *
+ * Bad habits: clicking them means the user DID the bad thing (failure).
+ * Not clicking = they didn't do it (no indicator needed).
+ */
+function getDayInfo(date: Date, habits: Habit[], logs: Log[]): DayInfo {
   const dateStr = format(date, "yyyy-MM-dd");
-  return habits
-    .filter((h) => isHabitDueOnDay(h, date))
-    .map((h) => ({
-      color: h.color,
-      completed: logs.some(
-        (l) => l.habit_id === h.id && l.date === dateStr && l.completed
-      ),
-    }));
+  const due = habits.filter((h) => isHabitDueOnDay(h, date));
+
+  if (due.length === 0) return { dots: [], status: "partial" };
+
+  const dots: Dot[] = [];
+  let goodAllDone = true;
+  let anyBadClicked = false;
+
+  for (const h of due) {
+    const completed = logs.some(
+      (l) => l.habit_id === h.id && l.date === dateStr && l.completed
+    );
+    dots.push({ color: h.color, completed });
+
+    if (h.type === "bad") {
+      if (completed) anyBadClicked = true;
+    } else {
+      if (!completed) goodAllDone = false;
+    }
+  }
+
+  if (anyBadClicked) return { dots, status: "bad-done" };
+
+  const hasGoodHabits = due.some((h) => h.type !== "bad");
+  if (hasGoodHabits && goodAllDone) return { dots, status: "all-done" };
+
+  return { dots, status: "partial" };
 }
 
 function DayDots({ dots }: { dots: Dot[] }) {
@@ -219,30 +254,37 @@ function MonthView({
       </div>
       <div className="cal-month-grid">
         {days.map((day) => {
-          const dateStr = format(day, "yyyy-MM-dd");
-          const inMonth = isSameMonth(day, viewDate);
-          const isToday = dateStr === today;
-          const isSelected = dateStr === selectedDate;
-          const dots = inMonth ? getDots(day, habits, rangeLogs) : [];
-          const allDone =
-            inMonth && dots.length > 0 && dots.every((d) => d.completed);
+          const dateStr  = format(day, "yyyy-MM-dd");
+          const inMonth  = isSameMonth(day, viewDate);
+          const isToday  = dateStr === today;
+          const isSel    = dateStr === selectedDate;
+          const { dots, status } = inMonth
+            ? getDayInfo(day, habits, rangeLogs)
+            : { dots: [], status: "partial" as DayStatus };
 
           return (
             <button
               key={dateStr}
               className={[
                 "cal-cell",
-                !inMonth ? "cal-cell--other" : "",
-                isToday ? "cal-cell--today" : "",
-                isSelected ? "cal-cell--selected" : "",
-                allDone ? "cal-cell--all-done" : "",
+                !inMonth            ? "cal-cell--other"    : "",
+                isToday             ? "cal-cell--today"    : "",
+                isSel               ? "cal-cell--selected" : "",
+                status === "all-done" ? "cal-cell--all-done" : "",
+                status === "bad-done" ? "cal-cell--bad-done" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               onClick={() => onDateSelect(dateStr)}
             >
               <span className="cal-cell-num">{format(day, "d")}</span>
-              <DayDots dots={dots} />
+              {status === "all-done" ? (
+                <CheckCircle2 className="cal-cell-done-check" />
+              ) : status === "bad-done" ? (
+                <XCircle className="cal-cell-bad-check" />
+              ) : (
+                <DayDots dots={dots} />
+              )}
             </button>
           );
         })}

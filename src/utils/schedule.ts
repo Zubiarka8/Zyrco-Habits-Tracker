@@ -16,7 +16,11 @@ export function isHabitDueOnDay(habit: Habit, date: Date): boolean {
   const dow = date.getDay();
 
   if (habit.frequency === "daily") return true;
-  if (habit.frequency === "weekly") return dow === 1; // every Monday — existing behaviour
+  if (habit.frequency === "weekly") {
+    // target_days[0] stores the chosen weekday; fall back to Monday for legacy habits
+    const day = habit.target_days?.[0] ?? 1;
+    return dow === day;
+  }
 
   if (habit.frequency === "custom") {
     // existing habits created before custom_type existed default to weekdays
