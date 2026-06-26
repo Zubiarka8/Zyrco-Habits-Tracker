@@ -8,6 +8,7 @@ import {
   addMonths,
   startOfMonth,
   endOfMonth,
+  eachDayOfInterval,
   startOfWeek,
   endOfWeek,
 } from "date-fns";
@@ -22,14 +23,14 @@ import { upsertLog } from "../db/database";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
 import { HabitCalendar, type CalendarView } from "../components/HabitCalendar";
+import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit, Log } from "../types";
 
 // ── HabitList ─────────────────────────────────────────────
 
 /**
- * The scrollable habit list for a single date — reused in both daily view
- * (full-page) and the day-panel that sits beside the monthly calendar.
- * Keeping it as a component avoids duplicating the row JSX in two places.
+ * Scrollable habit list for a single date — reused in daily view and the
+ * day-panel that sits beside the monthly calendar.
  */
 function HabitList({
   habits,
@@ -143,6 +144,69 @@ function HabitList({
   );
 }
 
+// ── MonthStrip ────────────────────────────────────────────
+
+/**
+ * Horizontal strip showing every day of the current calendar month.
+ * Clicking a day updates the right-panel preview without changing the view.
+ */
+function MonthStrip({
+  habits,
+  rangeLogs,
+  viewDate,
+  today,
+  selectedDate,
+  onSelectDate,
+}: {
+  habits: Habit[];
+  rangeLogs: Log[];
+  viewDate: Date;
+  today: string;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+}) {
+  const days = eachDayOfInterval({
+    start: startOfMonth(viewDate),
+    end:   endOfMonth(viewDate),
+  });
+
+  return (
+    <div className="month-strip">
+      {days.map((dayObj) => {
+        const date     = format(dayObj, "yyyy-MM-dd");
+        const due      = habits.filter((h) => isHabitDueOnDay(h, dayObj));
+        const dueCount = due.length;
+        const doneCount = due.filter((h) =>
+          rangeLogs.some((l) => l.habit_id === h.id && l.date === date && l.completed)
+        ).length;
+        const isToday = date === today;
+        const isSel   = date === selectedDate;
+        const allDone = dueCount > 0 && doneCount === dueCount;
+
+        return (
+          <button
+            key={date}
+            type="button"
+            className={[
+              "month-strip-day",
+              isToday  ? "month-strip-day--today"    : "",
+              isSel    ? "month-strip-day--selected" : "",
+              allDone && !isSel ? "month-strip-day--done" : "",
+            ].filter(Boolean).join(" ")}
+            onClick={() => onSelectDate(date)}
+          >
+            <span className="month-strip-name">{format(dayObj, "EEE")}</span>
+            <span className="month-strip-num">{format(dayObj, "d")}</span>
+            <span className="month-strip-ratio">
+              {dueCount > 0 ? `${doneCount}/${dueCount}` : "·"}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Today ─────────────────────────────────────────────────
 
 export function Today() {
@@ -168,7 +232,6 @@ export function Today() {
   const { categories } = useCategories();
   const { getHabitStats } = useStats();
 
-  // Range logs power both the monthly grid dots and the weekly habit grid
   const calRange = useMemo(() => {
     if (calView === "monthly") {
       return {
@@ -177,10 +240,7 @@ export function Today() {
       };
     }
     return {
-      start: format(
-        startOfWeek(viewDate, { weekStartsOn: 1 }),
-        "yyyy-MM-dd"
-      ),
+      start: format(startOfWeek(viewDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
       end: format(endOfWeek(viewDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
     };
   }, [calView, viewDate]);
@@ -190,7 +250,6 @@ export function Today() {
     calRange.end
   );
 
-  // Reminders always use today's logs — pass [] for past/future dates
   useReminders(habits, selectedDate === todayStr ? logs : []);
 
   // ── Note modal ────────────────────────────────────────────
@@ -198,17 +257,8 @@ export function Today() {
 
   // ── Due habits for the selected date ─────────────────────
   const selectedDateObj = parseISO(selectedDate + "T00:00:00");
-  const dow = selectedDateObj.getDay();
 
-  const dueHabits = habits.filter((h) => {
-    if (h.archived) return false;
-    if (h.frequency === "daily") return true;
-    if (h.frequency === "weekly") return dow === 1;
-    if (h.frequency === "custom" && h.target_days) {
-      return h.target_days.includes(dow);
-    }
-    return false;
-  });
+  const dueHabits = habits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
 
   const getLog = useCallback(
     (habitId: string) => logs.find((l) => l.habit_id === habitId),
@@ -219,14 +269,15 @@ export function Today() {
   const total = dueHabits.length;
 
   /**
-   * Toggle any habit on any date — used by the weekly grid so you can check
-   * off habits inline without switching views. After the write we refresh
-   * both the range logs (grid dots) and the day logs if it was today/selected.
+   * Toggle a habit on any date (used by the weekly grid).
+   * Dispatching the custom event is handled inside useDateLogs.toggle /
+   * upsertLog — here we only need to reload the range logs for the dots.
    */
   const toggleForRange = useCallback(
     async (habitId: string, date: string, currentCompleted: boolean) => {
       try {
         await upsertLog(habitId, date, !currentCompleted);
+        window.dispatchEvent(new CustomEvent("zyrco:log-changed"));
         reloadRangeLogs();
         if (date === selectedDate) reloadDayLogs();
       } catch (err) {
@@ -257,6 +308,10 @@ export function Today() {
     [calView, selectedDateObj]
   );
 
+  const handleJumpTo = useCallback((date: Date) => {
+    setViewDate(date);
+  }, []);
+
   const handleViewChange = useCallback(
     (v: CalendarView) => {
       setCalView(v);
@@ -269,7 +324,6 @@ export function Today() {
     (dateStr: string) => {
       setSelectedDate(dateStr);
       setViewDate(parseISO(dateStr + "T00:00:00"));
-      // Monthly: clicking a day populates the right panel without switching view
       if (calView === "monthly") return;
       setCalView("daily");
     },
@@ -284,14 +338,11 @@ export function Today() {
   const isToday = selectedDate === todayStr;
   const selectedLabel = format(selectedDateObj, "EEEE, MMMM d");
 
-  // ── Render ────────────────────────────────────────────────
-
-  // Monthly: split layout — calendar fills the left, day panel sits on the right
+  // ── Monthly layout: split calendar + day panel ─────────────
   if (calView === "monthly") {
     return (
       <div className="page today-page--monthly">
         <div className="today-split">
-          {/* Left: full-height monthly grid */}
           <div className="today-split-cal">
             <HabitCalendar
               view="monthly"
@@ -303,11 +354,20 @@ export function Today() {
               onViewChange={handleViewChange}
               onDateSelect={handleDateSelectFromCal}
               onNavigate={handleNavigate}
+              onJumpTo={handleJumpTo}
             />
           </div>
 
-          {/* Right: selected day detail panel */}
           <aside className="cal-day-panel">
+            <MonthStrip
+              habits={habits}
+              rangeLogs={rangeLogs}
+              viewDate={viewDate}
+              today={todayStr}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+            />
+
             <div className="cal-day-panel-header">
               <span className="cal-day-panel-date">{selectedLabel}</span>
               {total > 0 && (
@@ -355,7 +415,6 @@ export function Today() {
                   categories={categories}
                   getHabitStats={getHabitStats}
                   toggle={toggle}
-
                   onNoteClick={setNoteHabit}
                 />
               )}
@@ -376,7 +435,7 @@ export function Today() {
     );
   }
 
-  // Weekly: HabitCalendar renders the full transposed grid (habits × days)
+  // ── Weekly: full transposed habit × day grid ───────────────
   if (calView === "weekly") {
     return (
       <div className="page">
@@ -394,13 +453,14 @@ export function Today() {
             setCalView("daily");
           }}
           onNavigate={handleNavigate}
+          onJumpTo={handleJumpTo}
           onToggle={toggleForRange}
         />
       </div>
     );
   }
 
-  // Daily: nav header + progress + habit list
+  // ── Daily: nav header + progress + habit list ──────────────
   return (
     <div className="page">
       <HabitCalendar
@@ -413,6 +473,7 @@ export function Today() {
         onViewChange={handleViewChange}
         onDateSelect={handleDateSelectFromCal}
         onNavigate={handleNavigate}
+        onJumpTo={handleJumpTo}
       />
 
       {total > 0 && (

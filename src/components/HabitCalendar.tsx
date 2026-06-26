@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { CheckCircle2, Circle } from "lucide-react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   format,
@@ -10,8 +10,13 @@ import {
   eachDayOfInterval,
   isSameMonth,
   parseISO,
+  setMonth,
+  setYear,
+  getYear,
+  getMonth,
 } from "date-fns";
 import type { Habit, Log } from "../types";
+import { isHabitDueOnDay } from "../utils/schedule";
 
 export type CalendarView = "monthly" | "weekly" | "daily";
 
@@ -25,36 +30,19 @@ export interface HabitCalendarProps {
   onViewChange: (v: CalendarView) => void;
   onDateSelect: (date: string) => void;
   onNavigate: (dir: "prev" | "next") => void;
+  /** Jump directly to a date (month/year picker) */
+  onJumpTo?: (date: Date) => void;
   /** Optional — wired up for the weekly grid so you can toggle habits inline */
   onToggle?: (habitId: string, date: string, currentCompleted: boolean) => void;
 }
 
-// ── Shared helpers ────────────────────────────────────────
-
-/**
- * Returns whether a habit should appear on a given calendar day.
- * Mirrors the same logic in Today.tsx so dots and rows stay in sync.
- */
-function isHabitDueOnDay(habit: Habit, date: Date): boolean {
-  if (habit.archived) return false;
-  const dow = date.getDay();
-  if (habit.frequency === "daily") return true;
-  if (habit.frequency === "weekly") return dow === 1; // every Monday
-  if (habit.frequency === "custom" && habit.target_days) {
-    return habit.target_days.includes(dow);
-  }
-  return false;
-}
+// ── Dot helpers ───────────────────────────────────────────
 
 interface Dot {
   color: string;
   completed: boolean;
 }
 
-/**
- * Produces one dot descriptor per habit that is due on `date`.
- * Completed habits carry their color; pending ones are styled by CSS.
- */
 function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
   const dateStr = format(date, "yyyy-MM-dd");
   return habits
@@ -67,13 +55,6 @@ function getDots(date: Date, habits: Habit[], logs: Log[]): Dot[] {
     }));
 }
 
-// ── DayDots ───────────────────────────────────────────────
-
-/**
- * Compact completion summary for a single calendar cell.
- * Switches to "X/Y" text when habits outnumber available dot slots —
- * avoids the visual chaos of 10+ tiny circles crammed into one cell.
- */
 function DayDots({ dots }: { dots: Dot[] }) {
   const MAX = 6;
   const completed = dots.filter((d) => d.completed).length;
@@ -108,14 +89,100 @@ function DayDots({ dots }: { dots: Dot[] }) {
   );
 }
 
+// ── Month/Year picker ─────────────────────────────────────
+
+/** 12-month grid that closes when a month is clicked */
+function MonthPicker({
+  viewDate,
+  onSelect,
+  onClose,
+}: {
+  viewDate: Date;
+  onSelect: (month: number) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const currentMonth = getMonth(viewDate);
+
+  return (
+    <div className="cal-picker" ref={ref} role="dialog" aria-label="Month picker">
+      <div className="cal-picker-grid cal-picker-grid--months">
+        {Array.from({ length: 12 }, (_, i) => (
+          <button
+            key={i}
+            className={`cal-picker-btn ${i === currentMonth ? "cal-picker-btn--active" : ""}`}
+            onClick={() => { onSelect(i); onClose(); }}
+          >
+            {t(`common.months.${i}`)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Year grid showing 12 years at a time, with prev/next range navigation */
+function YearPicker({
+  viewDate,
+  onSelect,
+  onClose,
+}: {
+  viewDate: Date;
+  onSelect: (year: number) => void;
+  onClose: () => void;
+}) {
+  const currentYear = getYear(viewDate);
+  const [rangeStart, setRangeStart] = useState(() => Math.floor(currentYear / 12) * 12);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="cal-picker" role="dialog" aria-label="Year picker">
+      <div className="cal-picker-header">
+        <button className="cal-picker-nav" onClick={() => setRangeStart((s) => s - 12)}>
+          <ChevronLeft size={14} />
+        </button>
+        <span className="cal-picker-range">{rangeStart} – {rangeStart + 11}</span>
+        <button className="cal-picker-nav" onClick={() => setRangeStart((s) => s + 12)}>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+      <div className="cal-picker-grid cal-picker-grid--years">
+        {Array.from({ length: 12 }, (_, i) => {
+          const y = rangeStart + i;
+          return (
+            <button
+              key={y}
+              className={`cal-picker-btn ${y === currentYear ? "cal-picker-btn--active" : ""}`}
+              onClick={() => { onSelect(y); onClose(); }}
+            >
+              {y}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Monthly grid ──────────────────────────────────────────
 
-/**
- * Full month grid — 7 columns, cells grow to fill whatever height the parent
- * gives them (used in the split layout where the parent constrains to 100vh).
- * Clicking any cell calls onDateSelect which the parent uses to populate the
- * day-detail panel on the right.
- */
 function MonthView({
   viewDate,
   selectedDate,
@@ -133,8 +200,6 @@ function MonthView({
 }) {
   const { t } = useTranslation();
 
-  // Pad the grid so it always starts on Monday and ends on Sunday.
-  // This keeps the column count constant across all months.
   const days = useMemo(() => {
     const gridStart = startOfWeek(startOfMonth(viewDate), { weekStartsOn: 1 });
     const gridEnd = endOfWeek(endOfMonth(viewDate), { weekStartsOn: 1 });
@@ -188,12 +253,6 @@ function MonthView({
 
 // ── Weekly habit grid ─────────────────────────────────────
 
-/**
- * Transposed week view: habits as rows, days as columns.
- * Each cell shows the completion state and — if onToggle is wired — lets you
- * check or uncheck the habit directly without leaving this view.
- * This is the "big-screen" view: you see the whole week at a glance.
- */
 function WeekHabitGrid({
   viewDate,
   selectedDate,
@@ -223,7 +282,6 @@ function WeekHabitGrid({
 
   return (
     <div className="hwg">
-      {/* ── Header: day columns ── */}
       <div className="hwg-row hwg-header">
         <div className="hwg-habit-col" />
         {weekDays.map((day) => {
@@ -251,10 +309,8 @@ function WeekHabitGrid({
         })}
       </div>
 
-      {/* ── One row per habit ── */}
       {activeHabits.map((habit) => (
         <div key={habit.id} className="hwg-row">
-          {/* Habit label — colored left border matches the habit's chosen color */}
           <div
             className="hwg-habit-label"
             style={{ borderLeftColor: habit.color }}
@@ -263,7 +319,6 @@ function WeekHabitGrid({
             <span className="hwg-habit-name">{habit.name}</span>
           </div>
 
-          {/* One cell per day */}
           {weekDays.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
             const due = isHabitDueOnDay(habit, day);
@@ -274,7 +329,6 @@ function WeekHabitGrid({
             const completed = log?.completed ?? false;
 
             if (!due) {
-              // Habit not scheduled for this weekday — render a visual gap
               return <div key={dateStr} className="hwg-cell hwg-cell--skip" />;
             }
 
@@ -290,7 +344,7 @@ function WeekHabitGrid({
                   .filter(Boolean)
                   .join(" ")}
                 onClick={() => {
-                  if (isFuture) return; // can't log future dates
+                  if (isFuture) return;
                   if (onToggle) {
                     onToggle(habit.id, dateStr, completed);
                   } else {
@@ -306,7 +360,6 @@ function WeekHabitGrid({
                 }
               >
                 {isFuture ? (
-                  // Future day — show a faint dot as placeholder
                   <span
                     className="hwg-future-dot"
                     style={{ background: habit.color }}
@@ -322,7 +375,6 @@ function WeekHabitGrid({
         </div>
       ))}
 
-      {/* Empty state — no habits yet */}
       {activeHabits.length === 0 && (
         <div className="hwg-empty">
           <p>{t("today.noHabits")}</p>
@@ -334,11 +386,6 @@ function WeekHabitGrid({
 
 // ── HabitCalendar ─────────────────────────────────────────
 
-/**
- * Top-level calendar shell. Renders the navigation header (prev/label/next +
- * view toggle) and delegates the grid to MonthView or WeekHabitGrid.
- * Daily mode only shows the nav so Today.tsx can render the habit list below.
- */
 export function HabitCalendar({
   view,
   viewDate,
@@ -349,18 +396,22 @@ export function HabitCalendar({
   onViewChange,
   onDateSelect,
   onNavigate,
+  onJumpTo,
   onToggle,
 }: HabitCalendarProps) {
   const { t } = useTranslation();
+  const [picker, setPicker] = useState<"none" | "month" | "year">("none");
+
+  // Close picker if view changes (e.g. switch monthly → weekly)
+  useEffect(() => { setPicker("none"); }, [view]);
 
   const headerLabel = useMemo(() => {
-    if (view === "monthly") return format(viewDate, "MMMM yyyy");
+    if (view === "monthly") return null; // rendered as separate clickable parts
     if (view === "weekly") {
       const ws = startOfWeek(viewDate, { weekStartsOn: 1 });
       const we = endOfWeek(viewDate, { weekStartsOn: 1 });
       return `${format(ws, "MMM d")} – ${format(we, "MMM d, yyyy")}`;
     }
-    // Daily: show the selected date as the label
     const sel = parseISO(selectedDate + "T00:00:00");
     return format(sel, "EEEE, MMMM d, yyyy");
   }, [view, viewDate, selectedDate]);
@@ -373,31 +424,80 @@ export function HabitCalendar({
 
   const handleDateSelect = (dateStr: string) => {
     onDateSelect(dateStr);
-    // Clicking a day in monthly/weekly jumps to daily view
-    if (view !== "daily") onViewChange("daily");
+    // In monthly view, day clicks only update the right panel — no view switch.
+    // Weekly view does switch to daily for focused day editing.
+    if (view === "weekly") onViewChange("daily");
+  };
+
+  const handleJumpToMonth = (month: number) => {
+    onJumpTo?.(setMonth(viewDate, month));
+  };
+
+  const handleJumpToYear = (year: number) => {
+    onJumpTo?.(setYear(viewDate, year));
   };
 
   return (
     <div className="cal-container">
-      {/* ── Nav: prev | label | next + view toggle ── */}
+      {/* ── Nav bar ── */}
       <div className="cal-nav">
         <div className="cal-nav-label">
           <button
             className="cal-nav-btn"
-            onClick={() => onNavigate("prev")}
+            onClick={() => { setPicker("none"); onNavigate("prev"); }}
             aria-label="Previous"
           >
             ‹
           </button>
-          <span className="cal-nav-title">{headerLabel}</span>
+
+          {view === "monthly" ? (
+            /* Clickable month + year for the picker */
+            <div className="cal-nav-title-split">
+              <div className="cal-picker-anchor">
+                <button
+                  className={`cal-nav-month-btn ${picker === "month" ? "cal-nav-month-btn--active" : ""}`}
+                  onClick={() => setPicker((p) => (p === "month" ? "none" : "month"))}
+                >
+                  {format(viewDate, "MMMM")}
+                </button>
+                {picker === "month" && (
+                  <MonthPicker
+                    viewDate={viewDate}
+                    onSelect={handleJumpToMonth}
+                    onClose={() => setPicker("none")}
+                  />
+                )}
+              </div>
+
+              <div className="cal-picker-anchor">
+                <button
+                  className={`cal-nav-year-btn ${picker === "year" ? "cal-nav-year-btn--active" : ""}`}
+                  onClick={() => setPicker((p) => (p === "year" ? "none" : "year"))}
+                >
+                  {format(viewDate, "yyyy")}
+                </button>
+                {picker === "year" && (
+                  <YearPicker
+                    viewDate={viewDate}
+                    onSelect={handleJumpToYear}
+                    onClose={() => setPicker("none")}
+                  />
+                )}
+              </div>
+            </div>
+          ) : (
+            <span className="cal-nav-title">{headerLabel}</span>
+          )}
+
           <button
             className="cal-nav-btn"
-            onClick={() => onNavigate("next")}
+            onClick={() => { setPicker("none"); onNavigate("next"); }}
             aria-label="Next"
           >
             ›
           </button>
         </div>
+
         <div className="cal-view-toggle">
           {(["monthly", "weekly", "daily"] as CalendarView[]).map((v) => (
             <button
@@ -410,6 +510,11 @@ export function HabitCalendar({
           ))}
         </div>
       </div>
+
+      {/* Backdrop to close any open picker */}
+      {picker !== "none" && (
+        <div className="cal-picker-backdrop" onClick={() => setPicker("none")} />
+      )}
 
       {view === "monthly" && (
         <MonthView

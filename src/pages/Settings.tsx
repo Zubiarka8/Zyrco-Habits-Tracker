@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCategories } from "../hooks/useCategories";
+import { useAuth } from "../auth/AuthContext";
 import { Modal } from "../components/Modal";
 import { ImportExport } from "../components/ImportExport";
 import { Plus, Trash2, Edit2, LogOut } from "lucide-react";
@@ -23,6 +24,7 @@ type Theme = "light" | "dark" | "system";
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { categories, create, update, remove } = useCategories();
+  const { user, logout } = useAuth();
 
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("zyrco-theme") as Theme) ?? "system"
@@ -203,18 +205,18 @@ export function Settings() {
           </div>
         </section>
 
-        {/* [FUTURO - AUTH] When auth is added this becomes a real logout.
-            For now it closes the Tauri window — same end result for a local app. */}
         <section className="settings-section">
           <h2 className="section-title">{t("settings.session")}</h2>
+          {user && (
+            <p className="text-muted" style={{ fontSize: "0.85rem", marginBottom: 8 }}>
+              {user.email}
+            </p>
+          )}
           <button
             className="btn btn-danger settings-signout"
-            onClick={async () => {
-              try {
-                await getCurrentWindow().close();
-              } catch (err) {
-                console.error("Failed to close window:", err);
-              }
+            onClick={() => {
+              logout();
+              getCurrentWindow().close().catch(() => {});
             }}
           >
             <LogOut size={16} />

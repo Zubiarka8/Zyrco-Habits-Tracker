@@ -1,10 +1,11 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CalendarCheck, ListChecks, BarChart2, Settings } from "lucide-react";
+import { CalendarCheck, ListChecks, BarChart2, Settings, CheckSquare } from "lucide-react";
 
 const links = [
   { to: "/", icon: CalendarCheck, key: "nav.today" },
   { to: "/habits", icon: ListChecks, key: "nav.habits" },
+  { to: "/todos", icon: CheckSquare, key: "nav.todos" },
   { to: "/stats", icon: BarChart2, key: "nav.stats" },
 ];
 

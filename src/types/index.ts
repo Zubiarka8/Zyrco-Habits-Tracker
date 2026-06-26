@@ -12,7 +12,16 @@ export interface Habit {
   description: string | null;
   category_id: string | null;
   frequency: "daily" | "weekly" | "custom";
+  /** Discriminates the three custom schedule sub-types. Null on legacy habits (treated as "weekdays"). */
+  custom_type: "weekdays" | "month_days" | "interval" | null;
+  /** weekdays (0-6) or month-day numbers (1-31) depending on custom_type */
   target_days: number[] | null;
+  /** For custom_type "interval": repeat every N calendar days */
+  interval_days: number | null;
+  /** yyyy-MM-dd: earliest date this habit is due. Also the day-0 reference for interval habits. */
+  start_date: string | null;
+  /** yyyy-MM-dd: last date this habit is due (null = no end) */
+  end_date: string | null;
   color: string;
   icon: string;
   type: "good" | "bad" | "normal";
@@ -35,6 +44,15 @@ export interface HabitWithMeta extends Habit {
   streak: number;
   completedToday: boolean;
   category: Category | null;
+}
+
+export interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  priority: "none" | "low" | "medium" | "high";
+  due_date: string | null;
+  created_at: string;
 }
 
 // ── Subscription / Monetization ──────────────────────────

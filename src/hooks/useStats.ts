@@ -64,9 +64,14 @@ export function useStats() {
     load();
   }, [load]);
 
-  // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Historial de estadísticas.
-  // Free tendrá máximo 30 días de historial (days clamped a PLAN_LIMITS[plan].statsDays).
-  // Cuando MONETIZATION_ACTIVE = true: days = Math.min(days, PLAN_LIMITS[plan].statsDays)
+  // Reload whenever a habit is toggled anywhere in the app so streak badges
+  // and completion rates stay fresh without requiring a page navigation.
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("zyrco:log-changed", handler);
+    return () => window.removeEventListener("zyrco:log-changed", handler);
+  }, [load]);
+
   const getHabitStats = useCallback(
     (habitId: string, days = 30): HabitStats => {
       const endDate = new Date();

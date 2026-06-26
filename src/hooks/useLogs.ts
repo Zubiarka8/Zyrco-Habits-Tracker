@@ -8,83 +8,9 @@ import {
   upsertLog,
 } from "../db/database";
 
-export function useTodayLogs() {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchLogsForDate(today);
-      setLogs(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [today]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const toggle = useCallback(
-    async (habitId: string, currentCompleted: boolean) => {
-      const next = !currentCompleted;
-      await upsertLog(habitId, today, next);
-      setLogs((prev) => {
-        const existing = prev.find((l) => l.habit_id === habitId);
-        if (existing) {
-          return prev.map((l) =>
-            l.habit_id === habitId ? { ...l, completed: next } : l
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            habit_id: habitId,
-            date: today,
-            completed: next,
-            note: null,
-            created_at: new Date().toISOString(),
-          },
-        ];
-      });
-    },
-    [today]
-  );
-
-  const saveNote = useCallback(
-    async (habitId: string, note: string) => {
-      await upsertLog(habitId, today, true, note);
-      setLogs((prev) => {
-        const existing = prev.find((l) => l.habit_id === habitId);
-        if (existing) {
-          return prev.map((l) =>
-            l.habit_id === habitId ? { ...l, note } : l
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            habit_id: habitId,
-            date: today,
-            completed: true,
-            note,
-            created_at: new Date().toISOString(),
-          },
-        ];
-      });
-    },
-    [today]
-  );
-
-  return { logs, loading, error, reload: load, toggle, saveNote, today };
+/** Notify useStats (and any other listeners) that a log was written. */
+function notifyLogChanged() {
+  window.dispatchEvent(new CustomEvent("zyrco:log-changed"));
 }
 
 export function useHabitLogs(habitId: string, startDate: string, endDate: string) {
@@ -133,6 +59,7 @@ export function useDateLogs(date: string) {
     const next = !currentCompleted;
     try {
       await upsertLog(habitId, date, next);
+      notifyLogChanged();
       setLogs((prev) => {
         const existing = prev.find((l) => l.habit_id === habitId);
         if (existing) {
@@ -163,6 +90,7 @@ export function useDateLogs(date: string) {
   const saveNote = useCallback(async (habitId: string, note: string) => {
     try {
       await upsertLog(habitId, date, true, note);
+      notifyLogChanged();
       setLogs((prev) => {
         const existing = prev.find((l) => l.habit_id === habitId);
         if (existing) {
@@ -216,5 +144,18 @@ export function useCalendarLogs(startDate: string, endDate: string) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Also reload when any log changes so calendar dots stay in sync
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("zyrco:log-changed", handler);
+    return () => window.removeEventListener("zyrco:log-changed", handler);
+  }, [load]);
+
   return { logs, loading, reload: load };
+}
+
+// ── Legacy export (kept for backward compat — not used internally) ────
+export function useTodayLogs() {
+  const today = format(new Date(), "yyyy-MM-dd");
+  return useDateLogs(today);
 }

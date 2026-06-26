@@ -146,10 +146,11 @@
 - Folder structure:
   - `src/` — React frontend
     - `components/` — reusable UI (Modal, HabitForm, Sidebar, Layout, NoteModal, StreakBadge)
-    - `pages/` — Today, Habits, Stats, Settings
-    - `hooks/` — useHabits, useCategories, useLogs, useStats
+    - `pages/` — Today, Habits, Todos, Stats, Settings
+    - `hooks/` — useHabits, useCategories, useLogs, useStats, useTodos
+    - `utils/` — schedule.ts (shared isHabitDueOnDay — single source of truth for habit scheduling)
     - `db/` — database.ts (SQLite singleton, all CRUD)
-    - `types/` — index.ts (Category, Habit, Log, HabitWithMeta, HabitStats)
+    - `types/` — index.ts (Category, Habit, Log, Todo, HabitWithMeta, HabitStats)
     - `i18n/` — i18n setup + locales/en.json + locales/es.json
   - `src-tauri/` — Rust backend (Tauri shell, plugins)
 - Frequent commands:
@@ -162,15 +163,23 @@
 - Deploy: Tauri bundler (`npm run tauri build`) → .exe installer for Windows
 - CI/CD: none yet
 - Database: SQLite via `@tauri-apps/plugin-sql`. DB file at `%APPDATA%/com.zubia.zyrco/zyrco.db`
-  - Tables: `categories`, `habits`, `logs`
+  - Tables: `categories`, `habits`, `logs`, `subscriptions`, `todos`
   - No ORM — raw SQL via plugin
+  - Habit schedule columns: `custom_type` (weekdays|month_days|interval), `interval_days`, `start_date`, `end_date`
+  - All new columns added via ALTER TABLE migrations in initSchema — safe on existing DBs
 - Authentication: none
 - External APIs: none
 - i18n: react-i18next. Language stored in `localStorage` key `zyrco-language`
 - Theme: CSS custom properties + `data-theme` attribute on `<html>`. Stored in `localStorage` key `zyrco-theme`
+- Responsive design: **mandatory** — must work on Windows desktop, macOS, tablets (768px+), and mobile (iOS/Android)
+  - Approach: pure CSS custom properties + media query breakpoints (no Tailwind/Bootstrap; existing design system)
+  - Breakpoints: 900px (tablet: icon-only sidebar), 600px (mobile: bottom nav bar, single-column layout)
+  - Tailwind or other CSS libraries are allowed if needed for a major redesign, but NOT required for incremental work
+- Cross-platform event bus: `window.dispatchEvent(new CustomEvent("zyrco:log-changed"))` — dispatched after every log write; `useStats` and `useCalendarLogs` listen to it for live updates
 
 # GAPS AND PENDING
 - 2026-06-26: Reminders scheduled (plugin installed, UI toggle done) but OS notification scheduling not yet wired — needs background polling or Tauri cron equivalent
 - 2026-06-26: No tests — Vitest setup pending
 - 2026-06-26: App icon still uses Tauri default — custom icon pending
 - 2026-06-26: Production build untested (dev build blocked by MSVC until today)
+- 2026-06-26: Mobile bottom nav needs testing on real Android/iOS device via Tauri mobile target
