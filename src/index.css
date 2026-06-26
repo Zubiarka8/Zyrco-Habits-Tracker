@@ -2459,3 +2459,174 @@ a { text-decoration: none; color: inherit; }
     padding: 28px 20px;
   }
 }
+
+/* ── Password input with visibility toggle ──────────────── */
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input {
+  padding-right: 40px;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-muted);
+  border-radius: var(--radius-sm);
+  transition: color .15s;
+}
+
+.password-toggle:hover {
+  color: var(--color-text);
+}
+
+/* ── Streak at-risk badge ───────────────────────────────── */
+.streak-at-risk {
+  background: #f59e0b22;
+  color: #f59e0b;
+  animation: streak-pulse 2s ease-in-out infinite;
+}
+
+@keyframes streak-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+/* ── Filter bar (type + category + sort) ────────────────── */
+.filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+/* ── Category filter chips ──────────────────────────────── */
+.category-filter-chips {
+  border-top: 1px solid var(--color-border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+.category-chip {
+  --chip-color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--chip-color) 30%, transparent);
+  color: var(--chip-color);
+}
+
+.category-chip--active {
+  background: color-mix(in srgb, var(--chip-color) 15%, transparent) !important;
+  color: var(--chip-color) !important;
+  border-color: var(--chip-color) !important;
+}
+
+/* ── Habit sort control ─────────────────────────────────── */
+.habit-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 2px;
+}
+
+.habit-sort-icon {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.habit-sort-select {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+}
+
+.habit-sort-select:hover {
+  color: var(--color-text);
+}
+
+/* ── Monthly summary card (Stats) ───────────────────────── */
+.monthly-summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.monthly-summary-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 12px;
+}
+
+.monthly-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.monthly-summary-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.monthly-summary-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1;
+}
+
+.monthly-summary-label {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.monthly-summary-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--color-border);
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+/* ── 4th stat card color (completion rate) ──────────────── */
+.stat-icon-blue {
+  background: #3b82f622;
+  color: #3b82f6;
+}
+
+/* ── Category breakdown header row ─────────────────────── */
+.category-row-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .monthly-summary-stats {
+    gap: 0;
+  }
+  .monthly-summary-value {
+    font-size: 1.3rem;
+  }
+}

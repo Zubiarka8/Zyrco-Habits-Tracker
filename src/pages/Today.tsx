@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   format,
@@ -15,7 +15,7 @@ import {
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
   MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
-  CalendarOff, RotateCcw,
+  CalendarOff, RotateCcw, ArrowUpDown,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
@@ -31,9 +31,10 @@ import { Modal } from "../components/Modal";
 import { HabitForm } from "../components/HabitForm";
 import { HabitCalendar, type CalendarView } from "../components/HabitCalendar";
 import { isHabitDueOnDay } from "../utils/schedule";
-import type { Habit, Log } from "../types";
+import type { Habit, Log, Category } from "../types";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
+type HabitSort = "default" | "streak-desc" | "name-asc";
 
 // ── HabitList ─────────────────────────────────────────────
 
@@ -50,14 +51,16 @@ function HabitList({
   toggle,
   onNoteClick,
   onHabitMenu,
+  isToday,
 }: {
   habits: Habit[];
   logs: Log[];
-  categories: ReturnType<typeof import("../hooks/useCategories").useCategories>["categories"];
+  categories: Category[];
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
   toggle: (habitId: string, completed: boolean) => void;
   onNoteClick: (habit: Habit) => void;
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
+  isToday?: boolean;
 }) {
   const { t } = useTranslation();
   const getLog = useCallback(
@@ -68,10 +71,11 @@ function HabitList({
   return (
     <div className="habit-list">
       {habits.map((habit) => {
-        const log      = getLog(habit.id);
+        const log       = getLog(habit.id);
         const completed = log?.completed ?? false;
-        const stats    = getHabitStats(habit.id);
-        const category = categories.find((c) => c.id === habit.category_id);
+        const stats     = getHabitStats(habit.id);
+        const category  = categories.find((c) => c.id === habit.category_id);
+        const atRisk    = isToday && !completed && stats.streak > 0;
 
         return (
           <div
@@ -98,7 +102,7 @@ function HabitList({
               <div className="habit-name-row">
                 <span className="habit-icon">{habit.icon}</span>
                 <span className="habit-name">{habit.name}</span>
-                {stats.streak > 0 && <StreakBadge streak={stats.streak} />}
+                {stats.streak > 0 && <StreakBadge streak={stats.streak} atRisk={atRisk} />}
                 {habit.type !== "normal" && (
                   <span className={`type-pill type-pill-${habit.type}`}>
                     {habit.type === "bad" ? t("today.doneBad") : t("today.doneGood")}
@@ -261,6 +265,66 @@ function TypeFilterChips({
   );
 }
 
+// ── CategoryFilterChips ───────────────────────────────────
+
+function CategoryFilterChips({
+  active,
+  categories: cats,
+  onChange,
+}: {
+  active: string | null;
+  categories: Category[];
+  onChange: (id: string | null) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="type-filter-chips category-filter-chips">
+      <button
+        className={`type-chip ${!active ? "type-chip--active" : ""}`}
+        onClick={() => onChange(null)}
+      >
+        {t("habits.filterAll")}
+      </button>
+      {cats.map((c) => (
+        <button
+          key={c.id}
+          className={`type-chip category-chip ${active === c.id ? "category-chip--active" : ""}`}
+          style={{ "--chip-color": c.color } as React.CSSProperties}
+          onClick={() => onChange(active === c.id ? null : c.id)}
+        >
+          {c.icon} {c.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── SortControl ───────────────────────────────────────────
+
+function SortControl({
+  value,
+  onChange,
+}: {
+  value: HabitSort;
+  onChange: (v: HabitSort) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="habit-sort-control">
+      <ArrowUpDown size={13} className="habit-sort-icon" />
+      <select
+        className="habit-sort-select"
+        value={value}
+        onChange={(e) => onChange(e.target.value as HabitSort)}
+      >
+        <option value="default">{t("today.sortDefault")}</option>
+        <option value="streak-desc">{t("today.sortStreak")}</option>
+        <option value="name-asc">{t("today.sortName")}</option>
+      </select>
+    </div>
+  );
+}
+
 // ── DoneSection ───────────────────────────────────────────
 
 /** Collapsible section showing habits already completed for the day. */
@@ -367,8 +431,16 @@ export function Today() {
   // ── Note modal ────────────────────────────────────────────
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
 
-  // ── Type filter ───────────────────────────────────────────
-  const [typeFilter, setTypeFilter] = useState<"all" | "good" | "bad" | "normal">("all");
+  // ── Type / category / sort filters ───────────────────────
+  const [typeFilter, setTypeFilter]         = useState<"all" | "good" | "bad" | "normal">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [habitSort, setHabitSort]           = useState<HabitSort>("default");
+
+  // Clear type + category filters on date change (sort preference is kept)
+  useEffect(() => {
+    setTypeFilter("all");
+    setCategoryFilter(null);
+  }, [selectedDate]);
 
   // ── CRUD state ────────────────────────────────────────────
   const [formOpen, setFormOpen]       = useState(false);
@@ -533,14 +605,30 @@ export function Today() {
   const selectedLabel = format(selectedDateObj, "EEEE, MMMM d");
   const menuHabit     = menu ? habits.find((h) => h.id === menu.habitId) ?? null : null;
 
-  // Apply type filter
-  const filteredDue = typeFilter === "all"
-    ? dueHabits
-    : dueHabits.filter((h) => h.type === typeFilter);
+  // ── Filter chip types + categories present in dueHabits ──
+  const hasGood       = dueHabits.some((h) => h.type === "good");
+  const hasBad        = dueHabits.some((h) => h.type === "bad");
+  const hasNormal     = dueHabits.some((h) => h.type === "normal");
+  const dueCategories = categories.filter((c) => dueHabits.some((h) => h.category_id === c.id));
+
+  // Apply type + category filters, then sort
+  const filteredDue = dueHabits
+    .filter((h) => typeFilter === "all" || h.type === typeFilter)
+    .filter((h) => !categoryFilter || h.category_id === categoryFilter);
+
+  const sortedDue = (() => {
+    const arr = [...filteredDue];
+    if (habitSort === "streak-desc") {
+      arr.sort((a, b) => getHabitStats(b.id).streak - getHabitStats(a.id).streak);
+    } else if (habitSort === "name-asc") {
+      arr.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return arr;
+  })();
 
   // Split into pending and done for separate sections
-  const pendingHabits = filteredDue.filter((h) => !getLog(h.id)?.completed);
-  const doneHabits    = filteredDue.filter((h) =>  getLog(h.id)?.completed);
+  const pendingHabits = sortedDue.filter((h) => !getLog(h.id)?.completed);
+  const doneHabits    = sortedDue.filter((h) =>  getLog(h.id)?.completed);
 
   // ── Shared habit-list props ────────────────────────────────
   const habitListProps = {
@@ -550,12 +638,8 @@ export function Today() {
     toggle,
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
+    isToday,
   };
-
-  // ── Filter chip types present in dueHabits ─────────────────
-  const hasGood   = dueHabits.some((h) => h.type === "good");
-  const hasBad    = dueHabits.some((h) => h.type === "bad");
-  const hasNormal = dueHabits.some((h) => h.type === "normal");
 
   return (
     <>
@@ -621,14 +705,28 @@ export function Today() {
                   </div>
                 )}
 
-                {dueHabits.length > 0 && (hasGood || hasBad || hasNormal) && (
-                  <TypeFilterChips
-                    active={typeFilter}
-                    hasGood={hasGood}
-                    hasBad={hasBad}
-                    hasNormal={hasNormal}
-                    onChange={setTypeFilter}
-                  />
+                {dueHabits.length > 0 && (
+                  <div className="filter-bar">
+                    {(hasGood || hasBad || hasNormal) && (
+                      <TypeFilterChips
+                        active={typeFilter}
+                        hasGood={hasGood}
+                        hasBad={hasBad}
+                        hasNormal={hasNormal}
+                        onChange={setTypeFilter}
+                      />
+                    )}
+                    {dueCategories.length >= 2 && (
+                      <CategoryFilterChips
+                        active={categoryFilter}
+                        categories={dueCategories}
+                        onChange={setCategoryFilter}
+                      />
+                    )}
+                    {dueHabits.length > 1 && (
+                      <SortControl value={habitSort} onChange={setHabitSort} />
+                    )}
+                  </div>
                 )}
 
                 {done === total && total > 0 && (
@@ -735,14 +833,28 @@ export function Today() {
             </div>
           )}
 
-          {dueHabits.length > 0 && (hasGood || hasBad || hasNormal) && (
-            <TypeFilterChips
-              active={typeFilter}
-              hasGood={hasGood}
-              hasBad={hasBad}
-              hasNormal={hasNormal}
-              onChange={setTypeFilter}
-            />
+          {dueHabits.length > 0 && (
+            <div className="filter-bar">
+              {(hasGood || hasBad || hasNormal) && (
+                <TypeFilterChips
+                  active={typeFilter}
+                  hasGood={hasGood}
+                  hasBad={hasBad}
+                  hasNormal={hasNormal}
+                  onChange={setTypeFilter}
+                />
+              )}
+              {dueCategories.length >= 2 && (
+                <CategoryFilterChips
+                  active={categoryFilter}
+                  categories={dueCategories}
+                  onChange={setCategoryFilter}
+                />
+              )}
+              {dueHabits.length > 1 && (
+                <SortControl value={habitSort} onChange={setHabitSort} />
+              )}
+            </div>
           )}
 
           {pendingHabits.length > 0 && (

@@ -9,9 +9,16 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { format } from "date-fns";
-import { Flame, CheckCircle2, Award, BarChart2 } from "lucide-react";
+import {
+  format,
+  startOfMonth,
+  eachDayOfInterval,
+  getDaysInMonth,
+} from "date-fns";
+import { Flame, CheckCircle2, Award, BarChart2, TrendingUp, Percent } from "lucide-react";
 import { useStats } from "../hooks/useStats";
+import { useCategories } from "../hooks/useCategories";
+import { isHabitDueOnDay } from "../utils/schedule";
 import { StreakBadge } from "../components/StreakBadge";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +29,7 @@ export function Stats() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>(30);
   const { habits, logs, loading, getHabitStats, getOverallStats } = useStats();
+  const { categories } = useCategories();
 
   if (loading) return <div className="page-loading">{t("common.loading")}</div>;
 
@@ -58,6 +66,59 @@ export function Stats() {
     { value: 90, label: t("stats.last90days") },
   ];
 
+  // ── Monthly summary ─────────────────────────────────────
+  const today      = new Date();
+  const monthStart = startOfMonth(today);
+  const todayStr   = format(today, "yyyy-MM-dd");
+  const monthStartStr = format(monthStart, "yyyy-MM-dd");
+  const daysElapsed   = today.getDate();
+  const daysRemaining = getDaysInMonth(today) - daysElapsed;
+
+  const monthCompletions = logs.filter(
+    (l) => l.date >= monthStartStr && l.date <= todayStr && l.completed
+  ).length;
+
+  // Count how many habit-occurrences were due in the month so far (accurate rate)
+  let totalDueThisMonth = 0;
+  eachDayOfInterval({ start: monthStart, end: today }).forEach((day) => {
+    habits.forEach((h) => { if (isHabitDueOnDay(h, day)) totalDueThisMonth++; });
+  });
+  const monthRate = totalDueThisMonth > 0
+    ? Math.round((monthCompletions / totalDueThisMonth) * 100)
+    : 0;
+
+  // ── Average completion rate for the selected period ─────
+  const avgCompletionRate = habits.length > 0
+    ? Math.round(
+        habits.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
+        habits.length
+      )
+    : 0;
+
+  // ── Category breakdown ─────────────────────────────────
+  const categoryStats = categories
+    .map((cat) => {
+      const catHabits = habits.filter((h) => h.category_id === cat.id);
+      if (catHabits.length === 0) return null;
+      const avgRate = Math.round(
+        catHabits.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
+        catHabits.length
+      );
+      return { cat, avgRate, habitCount: catHabits.length };
+    })
+    .filter(Boolean) as { cat: (typeof categories)[0]; avgRate: number; habitCount: number }[];
+
+  const uncategorized = habits.filter((h) => !h.category_id);
+  const uncategorizedRate =
+    uncategorized.length > 0
+      ? Math.round(
+          uncategorized.reduce(
+            (sum, h) => sum + getHabitStats(h.id, period).completionRate,
+            0
+          ) / uncategorized.length
+        )
+      : 0;
+
   return (
     <div className="page">
       <div className="page-header">
@@ -72,6 +133,29 @@ export function Stats() {
               {opt.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Monthly summary card */}
+      <div className="monthly-summary-card">
+        <div className="monthly-summary-title">
+          {t("stats.thisMonth")} — {format(today, "MMMM yyyy")}
+        </div>
+        <div className="monthly-summary-stats">
+          <div className="monthly-summary-stat">
+            <span className="monthly-summary-value">{monthCompletions}</span>
+            <span className="monthly-summary-label">{t("stats.completionsThisMonth")}</span>
+          </div>
+          <div className="monthly-summary-divider" />
+          <div className="monthly-summary-stat">
+            <span className="monthly-summary-value">{monthRate}%</span>
+            <span className="monthly-summary-label">{t("stats.rateThisMonth")}</span>
+          </div>
+          <div className="monthly-summary-divider" />
+          <div className="monthly-summary-stat">
+            <span className="monthly-summary-value">{daysRemaining}</span>
+            <span className="monthly-summary-label">{t("stats.daysLeft")}</span>
+          </div>
         </div>
       </div>
 
@@ -129,6 +213,18 @@ export function Stats() {
           <div>
             <p className="stat-label">{t("stats.totalCompleted")}</p>
             <p className="stat-value">{overall.totalCompleted}</p>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon stat-icon-blue">
+            <Percent size={20} />
+          </div>
+          <div>
+            <p className="stat-label">{t("stats.completionRate")}</p>
+            <p className="stat-value">
+              {avgCompletionRate}
+              <span className="stat-unit">%</span>
+            </p>
           </div>
         </div>
       </div>
@@ -207,6 +303,69 @@ export function Stats() {
           })}
         </div>
       </div>
+
+      {/* Category breakdown — shown only if categories exist */}
+      {(categoryStats.length > 0 || uncategorized.length > 0) && (
+        <div className="per-habit-section">
+          <h2 className="section-title">
+            <TrendingUp size={16} style={{ display: "inline", marginRight: 6 }} />
+            {t("stats.byCategory")}
+          </h2>
+          <div className="per-habit-list">
+            {categoryStats.map(({ cat, avgRate, habitCount }) => (
+              <div key={cat.id} className="per-habit-row">
+                <div
+                  className="habit-card-icon"
+                  style={{ background: cat.color + "22" }}
+                >
+                  <span style={{ fontSize: 18 }}>{cat.icon}</span>
+                </div>
+                <div className="per-habit-info">
+                  <div className="category-row-header">
+                    <span className="habit-name">{cat.name}</span>
+                    <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                      {t("stats.habitCount", { count: habitCount })}
+                    </span>
+                  </div>
+                  <div className="per-habit-bar-wrap">
+                    <div className="per-habit-bar-bg">
+                      <div
+                        className="per-habit-bar-fill"
+                        style={{ width: `${avgRate}%`, background: cat.color }}
+                      />
+                    </div>
+                    <span className="per-habit-rate">{avgRate}%</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {uncategorized.length > 0 && (
+              <div className="per-habit-row">
+                <div className="habit-card-icon" style={{ background: "var(--color-border)" }}>
+                  <span style={{ fontSize: 18 }}>📁</span>
+                </div>
+                <div className="per-habit-info">
+                  <div className="category-row-header">
+                    <span className="habit-name">{t("habits.noCategory")}</span>
+                    <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                      {t("stats.habitCount", { count: uncategorized.length })}
+                    </span>
+                  </div>
+                  <div className="per-habit-bar-wrap">
+                    <div className="per-habit-bar-bg">
+                      <div
+                        className="per-habit-bar-fill"
+                        style={{ width: `${uncategorizedRate}%`, background: "var(--color-muted)" }}
+                      />
+                    </div>
+                    <span className="per-habit-rate">{uncategorizedRate}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

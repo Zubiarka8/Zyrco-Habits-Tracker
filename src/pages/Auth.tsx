@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth, tursoEnabled } from "../auth/AuthContext";
+import { PasswordInput } from "../components/PasswordInput";
 
 type Mode = "login" | "register";
 
@@ -117,9 +118,7 @@ export function Auth() {
 
           <div className="form-field">
             <label className="field-label">{t("auth.password")}</label>
-            <input
-              className="input"
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t("auth.passwordPlaceholder")}
@@ -132,9 +131,7 @@ export function Auth() {
           {mode === "register" && (
             <div className="form-field">
               <label className="field-label">{t("auth.confirmPassword")}</label>
-              <input
-                className="input"
-                type="password"
+              <PasswordInput
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder={t("auth.confirmPasswordPlaceholder")}

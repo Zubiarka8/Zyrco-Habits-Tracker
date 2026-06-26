@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/Modal";
 import { ImportExport } from "../components/ImportExport";
 import { Plus, Trash2, Edit2, LogOut, KeyRound } from "lucide-react";
+import { PasswordInput } from "../components/PasswordInput";
 import type { Category } from "../types";
 
 // [FUTURO - PREMIUM ANUAL + LIFETIME] Temas visuales exclusivos (accent colors, dark variants especiales).
@@ -281,9 +282,7 @@ export function Settings() {
         <div className="habit-form">
           <div className="form-field">
             <label className="field-label">{t("settings.currentPassword")}</label>
-            <input
-              type="password"
-              className="input"
+            <PasswordInput
               value={currentPw}
               onChange={(e) => setCurrentPw(e.target.value)}
               autoFocus
@@ -291,9 +290,7 @@ export function Settings() {
           </div>
           <div className="form-field">
             <label className="field-label">{t("settings.newPassword")}</label>
-            <input
-              type="password"
-              className="input"
+            <PasswordInput
               value={newPw}
               onChange={(e) => setNewPw(e.target.value)}
               placeholder={t("auth.passwordPlaceholder")}
@@ -301,9 +298,7 @@ export function Settings() {
           </div>
           <div className="form-field">
             <label className="field-label">{t("auth.confirmPassword")}</label>
-            <input
-              type="password"
-              className="input"
+            <PasswordInput
               value={confirmPw}
               onChange={(e) => setConfirmPw(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleChangePassword(); }}

@@ -5,6 +5,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 ---
 
 ## 🔐 Authentication
+- ✅ Password visibility toggle on all password fields (login, register, change password)
+- ✅ Change password from Settings (verifies current password, generates new salt)
 - ⬜ Anonymous login ("Continue without account") — full app access, data stored locally only
 - ⬜ Anonymous → registered account upgrade (keep all local data)
 - ⬜ Login screen (email + password)
@@ -118,8 +120,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Delete category
 - ✅ Assign category to habit
 - ✅ Category badge visible on habit rows and cards
-- ⬜ Filter habits by category on Today page
-- ⬜ Category stats (completion rate per category)
+- ✅ Filter habits by category on Today page (category chips row)
+- ✅ Category stats (completion rate per category in Stats → By category section)
 - ⬜ Category type: Good habits / Bad habits / Neutral
 
 ---
@@ -154,8 +156,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Completion ratio dots (up to 6 dots; shows X/Y ratio if overflow)
 - ✅ Skipped habits excluded from calendar status calculation
 
-### Pending
-- ⬜ "Today" shortcut button to jump back to current date
+### Done
+- ✅ "Today" shortcut button to jump back to current date (appears only when not on today)
 - ⬜ Hour-by-hour timeline (day view like Google Calendar)
 - ⬜ Time-block events on weekly/daily calendar for habits with start+end time
 - ⬜ Drag event to reschedule (time block for that day only)
@@ -179,11 +181,16 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Type badge (Good / Bad) per habit row
 - ✅ Time display on habit row (e.g. 08:00 or 08:00 – 09:00)
 - ✅ Category badge on habit row
+- ✅ Type filter chips (All / Good / Bad / Normal — only shows types present that day)
+- ✅ Category filter chips (shown when 2+ different categories are due that day)
+- ✅ Sort habits (Default / Streak ↓ / Name A–Z select)
+- ✅ Streak at-risk visual indicator (amber pulse on streak badge when today + not done)
+- ✅ Pending / Done sections (done habits collapse into separate collapsible section)
+- ✅ Toast notifications for CRUD operations (create / update / archive / delete)
 - ⬜ Skip with reason (sick, travel, etc.)
 - ⬜ Partial completion (e.g. "did 15 min instead of 30")
 - ⬜ Mood rating per check-in (1–5)
-- ⬜ Habit reordering on Today list
-- ⬜ Filter habits on Today page (by category, type, status)
+- ⬜ Habit reorder via drag and drop
 
 ---
 
@@ -191,6 +198,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Current streak per habit (calculated live)
 - ✅ Streak badge visible on habit rows (color changes at 7 and 30 days)
 - ✅ Best streak per habit (tracked in DB, shown in Stats)
+- ✅ Streak at-risk visual (amber pulsing badge on pending habits when today's streak is live)
 - ⬜ Streak milestone notifications (7, 30, 60, 100 days)
 - ⬜ Streak freeze — skip one day without breaking streak 🔒 Premium
 - ⬜ Visual streak calendar per habit (heatmap) 🔒 Premium
@@ -203,10 +211,12 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Per-habit best streak
 - ✅ Overall current streak and best streak
 - ✅ Total completions count
+- ✅ Overall completion rate card (average across all habits for the selected period)
+- ✅ Monthly summary card (completions + accurate rate + days remaining for current month)
+- ✅ Category breakdown section (avg completion rate per category with progress bar)
 - ⬜ Calendar heatmap (GitHub-style, full history) 🔒 Premium
 - ⬜ Best day of the week analysis
 - ⬜ Habit correlation analysis 🔒 Premium
-- ⬜ Monthly summary card
 - ⬜ "Good vs Bad" habit balance chart
 - ⬜ Stats for a specific date range (custom picker)
 - ⬜ Skip days reflected in completion rate (skipped days not counted as missed)
@@ -281,7 +291,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ✅ Skip habit on a specific day (exceptions stored in `skips` table, restorable)
 - ✅ Fixed-position context menu (⋮) on habit rows and cards — works even on archived cards
 - ⬜ Bulk delete / bulk archive (select multiple)
-- ⬜ Reorder habits (drag and drop)
+- ⬜ Reorder habits (drag and drop or arrow buttons)
 - ⬜ Manual database backup (save .db file to disk)
 - ⬜ Restore database from backup file
 - ⬜ Clear all data (reset app to factory state)
@@ -322,7 +332,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 - ⬜ Error boundary (catch React crashes gracefully)
 - ⬜ Loading skeletons instead of "Loading..." text
 - ⬜ Empty states with illustrations (not just text)
-- ⬜ Toast notifications for save / error feedback
+- ✅ Toast notifications for save / error feedback (success / error / info, auto-dismiss)
 
 ---
 
@@ -330,16 +340,16 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 
 | Area | Done | Partial | Pending |
 |---|---|---|---|
-| Authentication | 0 | 0 | 9 |
+| Authentication | 2 | 0 | 7 |
 | User roles / plans | 7 (arch) | 0 | 20 |
 | Monetization | 0 | 0 | 7 |
 | Habit creation | 12 | 0 | 8 |
-| Categories | 5 | 0 | 3 |
+| Categories | 7 | 0 | 1 |
 | Frequency & scheduling | 8 | 0 | 3 |
-| Calendar views | 12 | 0 | 5 |
-| Daily check-in | 15 | 0 | 5 |
-| Streaks | 3 | 0 | 3 |
-| Statistics | 5 | 0 | 6 |
+| Calendar views | 13 | 0 | 4 |
+| Daily check-in | 22 | 0 | 4 |
+| Streaks | 4 | 0 | 3 |
+| Statistics | 8 | 0 | 5 |
 | Reminders | 0 | 2 | 4 |
 | Import | 3 | 0 | 2 |
 | Export | 1 | 0 | 4 |
@@ -349,8 +359,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 | Data management | 6 | 0 | 5 |
 | Sync | 0 | 0 | 4 |
 | Platform support | 1 | 0 | 10 |
-| Quality | 0 | 0 | 7 |
-| **Total** | **85** | **2** | **118** |
+| Quality | 1 | 0 | 6 |
+| **Total** | **102** | **2** | **110** |
 
 ---
 
@@ -359,7 +369,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 | Phase | Focus | Prerequisite |
 |---|---|---|
 | **1 — Core** ✅ | Habit CRUD, categories, scheduling, check-in, stats, import/export | — |
-| **2 — UX polish** | Today button in cal nav, skip with reason, filter by category, habit reorder, empty state illustrations, toasts | Core |
+| **2 — UX polish** ✅ | Today button, toasts, type/category filters, sort, at-risk streak, monthly stats, category stats, password visibility | Core |
+| **2b — Remaining UX** | Skip with reason, habit reorder (drag/drop), empty state illustrations, heatmap | Core |
 | **3 — Notifications** | Background OS notification scheduling (Tauri cron), daily summary push | Core |
 | **4 — Auth** | Anonymous login, email login, account upgrade | — |
 | **5 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |

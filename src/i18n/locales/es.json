@@ -37,7 +37,10 @@
     "toastUpdated": "Hábito actualizado",
     "toastArchived": "Hábito archivado",
     "toastUnarchived": "Hábito desarchivado",
-    "toastDeleted": "Hábito eliminado"
+    "toastDeleted": "Hábito eliminado",
+    "sortDefault": "Predeterminado",
+    "sortStreak": "Racha ↓",
+    "sortName": "Nombre A–Z"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -149,7 +152,13 @@
     "perHabit": "Por hábito",
     "activity": "Actividad",
     "selectPeriod": "Período",
-    "completions": "Completados"
+    "completions": "Completados",
+    "thisMonth": "Este mes",
+    "daysLeft": "días restantes",
+    "completionsThisMonth": "Completados",
+    "rateThisMonth": "Tasa este mes",
+    "byCategory": "Por categoría",
+    "habitCount": "{{count}} hábitos"
   },
   "settings": {
     "title": "Ajustes",

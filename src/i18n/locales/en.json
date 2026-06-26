@@ -37,7 +37,10 @@
     "toastUpdated": "Habit updated",
     "toastArchived": "Habit archived",
     "toastUnarchived": "Habit unarchived",
-    "toastDeleted": "Habit deleted"
+    "toastDeleted": "Habit deleted",
+    "sortDefault": "Default",
+    "sortStreak": "Streak ↓",
+    "sortName": "Name A–Z"
   },
   "habits": {
     "title": "My Habits",
@@ -149,7 +152,13 @@
     "perHabit": "Per habit",
     "activity": "Activity",
     "selectPeriod": "Period",
-    "completions": "Completions"
+    "completions": "Completions",
+    "thisMonth": "This month",
+    "daysLeft": "days left",
+    "completionsThisMonth": "Completions",
+    "rateThisMonth": "Rate this month",
+    "byCategory": "By category",
+    "habitCount": "{{count}} habits"
   },
   "settings": {
     "title": "Settings",
