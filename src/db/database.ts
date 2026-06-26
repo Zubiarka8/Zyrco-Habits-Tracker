@@ -2,13 +2,19 @@ import Database from "@tauri-apps/plugin-sql";
 import type { Category, Habit, Log, Subscription, PlanType } from "../types";
 
 let db: Database | null = null;
+let dbInitPromise: Promise<Database> | null = null;
 
-export async function getDb(): Promise<Database> {
-  if (!db) {
-    db = await Database.load("sqlite:zyrco.db");
-    await initSchema(db);
+// Single promise ensures concurrent callers share one init — no SQLite lock races.
+export function getDb(): Promise<Database> {
+  if (db) return Promise.resolve(db);
+  if (!dbInitPromise) {
+    dbInitPromise = Database.load("sqlite:zyrco.db").then(async (conn) => {
+      await initSchema(conn);
+      db = conn;
+      return conn;
+    });
   }
-  return db;
+  return dbInitPromise;
 }
 
 async function initSchema(database: Database): Promise<void> {
