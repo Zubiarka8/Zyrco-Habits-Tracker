@@ -11,12 +11,19 @@ export function useTodayLogs() {
   const today = format(new Date(), "yyyy-MM-dd");
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await fetchLogsForDate(today);
-    setLogs(data);
-    setLoading(false);
+    setError(null);
+    try {
+      const data = await fetchLogsForDate(today);
+      setLogs(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
   }, [today]);
 
   useEffect(() => {
@@ -76,7 +83,7 @@ export function useTodayLogs() {
     [today]
   );
 
-  return { logs, loading, reload: load, toggle, saveNote, today };
+  return { logs, loading, error, reload: load, toggle, saveNote, today };
 }
 
 export function useHabitLogs(habitId: string, startDate: string, endDate: string) {

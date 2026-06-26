@@ -4,36 +4,40 @@ import type { Category, Habit, Log, Subscription, PlanType } from "../types";
 let db: Database | null = null;
 let dbInitPromise: Promise<Database> | null = null;
 
-// Polls until window.__TAURI_INTERNALS__ is injected by the webview.
-// In dev mode the IPC bridge can arrive a few ms after React mounts.
-function waitForTauriBridge(): Promise<void> {
-  if ("__TAURI_INTERNALS__" in window) return Promise.resolve();
-  return new Promise((resolve) => {
-    const id = setInterval(() => {
-      if ("__TAURI_INTERNALS__" in window) {
-        clearInterval(id);
-        resolve();
+// Retries Database.load() up to MAX_RETRIES times with a delay between each.
+// This handles the rare case where the Tauri IPC bridge isn't ready on the first
+// useEffect tick (e.g. during dev-mode startup or after HMR).
+async function loadDbWithRetry(): Promise<Database> {
+  const MAX_RETRIES = 10;
+  const DELAY_MS = 150;
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const conn = await Database.load("sqlite:zyrco.db");
+      await initSchema(conn);
+      db = conn;
+      return conn;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise<void>((r) => setTimeout(r, DELAY_MS));
       }
-    }, 20);
-  });
+    }
+  }
+
+  throw lastErr;
 }
 
 // Single promise ensures concurrent callers share one init — no SQLite lock races.
-// Resets on failure so the next caller can retry.
+// Resets on failure so the next caller can start a fresh retry cycle.
 export function getDb(): Promise<Database> {
   if (db) return Promise.resolve(db);
   if (!dbInitPromise) {
-    dbInitPromise = waitForTauriBridge()
-      .then(() => Database.load("sqlite:zyrco.db"))
-      .then(async (conn) => {
-        await initSchema(conn);
-        db = conn;
-        return conn;
-      })
-      .catch((err) => {
-        dbInitPromise = null; // allow retry on next call
-        return Promise.reject(err);
-      });
+    dbInitPromise = loadDbWithRetry().catch((err) => {
+      dbInitPromise = null;
+      return Promise.reject(err);
+    });
   }
   return dbInitPromise;
 }

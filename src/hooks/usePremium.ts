@@ -73,23 +73,38 @@ export function usePremium(): PremiumState {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const sub = await getSubscription();
+    try {
+      const sub = await getSubscription();
 
-    // Auto-expire if past expiry date
-    if (
-      sub &&
-      sub.status === "active" &&
-      sub.expires_at &&
-      new Date(sub.expires_at) < new Date()
-    ) {
-      await expireSubscription();
-      const refreshed = await getSubscription();
-      setSubscription(refreshed);
-    } else {
-      setSubscription(sub);
+      // Auto-expire if past expiry date
+      if (
+        sub &&
+        sub.status === "active" &&
+        sub.expires_at &&
+        new Date(sub.expires_at) < new Date()
+      ) {
+        try {
+          await expireSubscription();
+        } catch (expireErr) {
+          console.error("Failed to expire subscription:", expireErr);
+        }
+        try {
+          const refreshed = await getSubscription();
+          setSubscription(refreshed);
+        } catch (refreshErr) {
+          console.error("Failed to refresh subscription after expiry:", refreshErr);
+          setSubscription(sub);
+        }
+      } else {
+        setSubscription(sub);
+      }
+    } catch (err) {
+      // Subscription table may not exist yet on first cold start — not fatal
+      console.error("Failed to load subscription:", err);
+      setSubscription(null);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
