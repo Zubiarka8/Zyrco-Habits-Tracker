@@ -1,6 +1,6 @@
 # Zyrco — Feature Checklist
 
-Legend: ✅ Done · 🔧 Partial · ⬜ Pending
+Legend: ✅ Done · 🔧 Partial · ⬜ Pending · 🔒 Premium (future)
 
 ---
 
@@ -15,7 +15,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ⬜ Logout
 - ⬜ Profile page (name, avatar)
 
-> **Design rule:** anonymous users get the full core experience. Account is only required for cloud sync, cross-device, and premium features — never forced on first launch.
+> **Design rule:** anonymous users get the full core experience. Account is only required for cloud sync and multi-device — never forced on first launch.
 
 ---
 
@@ -96,11 +96,19 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ✅ Custom icon (emoji picker)
 - ✅ Assign to category
 - ✅ Habit type: **Good** / **Normal** / **Bad**
+- ✅ Optional start time + end time per habit (e.g. 07:00–07:30) — shown on habit row
+- ✅ Edit habit (name, description, color, icon, category, type, schedule, time)
+- ✅ Archive habit (hide without deleting)
+- ✅ Unarchive habit
+- ✅ Delete habit (with confirmation)
+- ✅ CRUD accessible from Today view (day panel + daily view)
 - ⬜ Habit difficulty level (Easy / Medium / Hard)
 - ⬜ Habit goal (e.g. "30 consecutive days")
 - ⬜ Preset habit templates (e.g. "Drink water", "Exercise", "No sugar")
-- ⬜ Optional start time + end time per habit (e.g. 07:00–07:30)
-- ⬜ Timeless mode (no schedule, just track completion)
+- ⬜ Duplicate habit
+- ⬜ Reorder habits manually (drag and drop)
+- ⬜ Pin habit to top of list
+- ⬜ Timeless mode (no schedule, just track whenever)
 
 ---
 
@@ -109,109 +117,124 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ✅ Edit category
 - ✅ Delete category
 - ✅ Assign category to habit
-- ⬜ Category type: Good habits / Bad habits / Neutral
+- ✅ Category badge visible on habit rows and cards
 - ⬜ Filter habits by category on Today page
 - ⬜ Category stats (completion rate per category)
+- ⬜ Category type: Good habits / Bad habits / Neutral
 
 ---
 
 ## 📅 Frequency & Scheduling
 - ✅ Daily frequency
-- ✅ Weekly frequency (every Monday)
-- ✅ Custom days (pick specific weekdays)
-- ⬜ X times per week (e.g. "3 times per week", any days)
-- ⬜ X times per month
-- ⬜ Every N days (e.g. every 3 days)
-- ⬜ Start date / end date for a habit (habit lifespan)
-- ⬜ Time block per habit: optional start time + end time (e.g. 07:00–07:30)
-- ⬜ Timeless mode: mark habit as "no fixed time"
+- ✅ Weekly frequency (specific day of the week)
+- ✅ Custom weekdays (pick one or more specific weekdays)
+- ✅ Custom month-days (pick specific calendar days 1–31)
+- ✅ Interval schedule (every N days, configurable with +/− stepper)
+- ✅ Start date for habit (first day it becomes active)
+- ✅ End date for habit (optional — habit auto-expires)
+- ✅ Schedule preview (shows next 14 days with active days highlighted)
+- ⬜ X times per week (any N days, not fixed weekdays — e.g. "3 times this week")
+- ⬜ X times per month (any N days)
+- ⬜ Timeless mode (mark habit without a recurring schedule)
 
 ---
 
-## 📆 Calendar View
-> Habits with a time block appear as events on the calendar. Timeless habits appear as all-day items.
+## 📆 Calendar Views
+### Views implemented
+- ✅ **Monthly view** — month grid with completion dots, all-done ✓, bad-done ✗
+- ✅ **Weekly view** — 7-column habit grid with inline toggle per cell
+- ✅ **Daily view** — habit list for the selected day with full check-in
+- ✅ Switch between views (Monthly / Weekly / Daily toggle)
+- ✅ Navigate prev/next period (arrow buttons)
+- ✅ Month/year picker (click month or year in header → picker dropdown)
+- ✅ Right-panel day preview in Monthly view (click day → preview without switching to Daily)
+- ✅ Month strip in Monthly right panel (full month scroll bar to select day)
+- ✅ All-done green checkmark on calendar days (all good habits completed)
+- ✅ Bad-habit red X on calendar days (bad habit was clicked = user did the bad thing)
+- ✅ Completion ratio dots (up to 6 dots; shows X/Y ratio if overflow)
+- ✅ Skipped habits excluded from calendar status calculation
 
-### Views
-- ⬜ **Daily view** — hour-by-hour timeline of the day's habits (like Google Calendar day view)
-- ⬜ **Weekly view** — 7-column grid with time blocks per habit per day
-- ⬜ **Monthly view** — month grid showing completion dots / streaks per day
-- ⬜ Switch between views (toggle: Day / Week / Month)
-- ⬜ Navigate to previous / next period (arrows + "Today" button)
-- ⬜ Click on a day in Month view → jump to Daily view for that day
-
-### Events & interaction
-- ⬜ Habits with start+end time shown as colored time-block events
-- ⬜ Timeless habits shown as all-day chips at top of day/week column
-- ⬜ Click event → mark as done / avoided directly from calendar
-- ⬜ Click event → open detail panel (note, streak, stats)
-- ⬜ Drag event to reschedule (change time block for that day only)
-- ⬜ Color-coded by habit color
-- ⬜ Completed events visually distinct (e.g. faded + checkmark)
-- ⬜ Overflow indicator when too many habits overlap (e.g. "+2 more")
-
-### Data
-- ⬜ Calendar reads from existing `logs` table (no new table needed for basic view)
-- ⬜ Time block stored in habits table (`start_time`, `end_time` columns)
-- ⬜ Per-day override of time block (e.g. "today I'll do it at 8 instead of 7")
+### Pending
+- ⬜ "Today" shortcut button to jump back to current date
+- ⬜ Hour-by-hour timeline (day view like Google Calendar)
+- ⬜ Time-block events on weekly/daily calendar for habits with start+end time
+- ⬜ Drag event to reschedule (time block for that day only)
+- ⬜ Overflow indicator when too many habits overlap ("+2 more")
 
 ---
 
 ## ✅ Daily Check-in (Today page)
-- ✅ List habits due today
-- ✅ Mark habit as done / undone
-- ✅ Progress bar (X of Y done)
-- ✅ Add/edit note per check-in
-- ✅ "All done" celebration state
+- ✅ List habits due on selected date
+- ✅ Mark habit as done / undone (toggle)
+- ✅ Good habit: checkmark button; Bad habit: "avoided" button (distinct style)
+- ✅ Progress counter (X of Y completed)
+- ✅ Add/edit note per check-in (note preview on habit row)
+- ✅ "All done" celebration state with emoji
+- ✅ Skip habit for a specific day (habit disappears for that day only, restorable)
+- ✅ Skipped section shown below list with one-click restore
+- ✅ View any past or future day (calendar navigation)
+- ✅ Edit / archive / delete habit directly from day panel or daily view
+- ✅ Create new habit from Today page (+ button in panel header / daily view header)
+- ✅ Streak badge per habit row
+- ✅ Type badge (Good / Bad) per habit row
+- ✅ Time display on habit row (e.g. 08:00 or 08:00 – 09:00)
+- ✅ Category badge on habit row
+- ⬜ Skip with reason (sick, travel, etc.)
 - ⬜ Partial completion (e.g. "did 15 min instead of 30")
 - ⬜ Mood rating per check-in (1–5)
-- ⬜ Skip option with reason (sick, travel, etc.)
-- ⬜ View past days (calendar navigation)
+- ⬜ Habit reordering on Today list
+- ⬜ Filter habits on Today page (by category, type, status)
 
 ---
 
 ## 🔥 Streaks
-- ✅ Current streak per habit
-- ✅ Streak badge (color changes at 7 and 30 days)
-- ⬜ Best streak per habit (tracked in DB, not shown in Today)
-- ⬜ Streak freeze — skip one day without breaking streak 🔒 Premium
+- ✅ Current streak per habit (calculated live)
+- ✅ Streak badge visible on habit rows (color changes at 7 and 30 days)
+- ✅ Best streak per habit (tracked in DB, shown in Stats)
 - ⬜ Streak milestone notifications (7, 30, 60, 100 days)
+- ⬜ Streak freeze — skip one day without breaking streak 🔒 Premium
+- ⬜ Visual streak calendar per habit (heatmap) 🔒 Premium
 
 ---
 
 ## 📊 Statistics
-- ✅ Bar chart: daily completions over 7 / 30 / 90 days
+- ✅ Bar chart: daily completions over 7 / 30 / 90 days (selectable)
 - ✅ Per-habit completion rate with progress bar
+- ✅ Per-habit best streak
 - ✅ Overall current streak and best streak
 - ✅ Total completions count
-- ⬜ Calendar heatmap (GitHub-style) 🔒 Premium
-- ⬜ Best day of the week 🔒 Premium
-- ⬜ Habit correlation 🔒 Premium
-- ⬜ Monthly summary view
+- ⬜ Calendar heatmap (GitHub-style, full history) 🔒 Premium
+- ⬜ Best day of the week analysis
+- ⬜ Habit correlation analysis 🔒 Premium
+- ⬜ Monthly summary card
 - ⬜ "Good vs Bad" habit balance chart
+- ⬜ Stats for a specific date range (custom picker)
+- ⬜ Skip days reflected in completion rate (skipped days not counted as missed)
 
 ---
 
 ## 🔔 Reminders & Notifications
-- 🔧 Reminder time per habit (UI toggle + time picker done)
-- 🔧 OS notification permission request (Settings page done)
-- ⬜ Actually schedule notifications at the set time
-- ⬜ "Daily summary" notification (e.g. 9 PM: "You have 3 habits pending")
+- 🔧 Reminder time per habit (UI toggle + time picker done, stored in DB)
+- 🔧 OS notification permission request (Settings page — request + status display done)
+- ⬜ Actually schedule OS notifications at the set time (background polling / Tauri cron)
+- ⬜ "Daily summary" push notification (e.g. 9 PM: "You have 3 habits pending")
 - ⬜ Streak at-risk alert 🔒 Premium
 - ⬜ Weekly report notification 🔒 Premium
 
 ---
 
 ## 📥 Import
-- ⬜ Import habits from JSON file
-- ⬜ Import habits from CSV file
+- ✅ Import habits from JSON file (Zyrco export format)
+- ✅ Import past check-in history from JSON (logs included in export)
+- ✅ Import categories from JSON
+- ⬜ Import from CSV file
 - ⬜ Import from preset library (curated list of popular habits)
-- ⬜ Import past check-in history from JSON/CSV
 
 ---
 
 ## 📤 Export
-- ⬜ Export all habits to JSON
-- ⬜ Export all habits to CSV 🔒 Premium
+- ✅ Export all data to JSON (habits + categories + logs, timestamped filename)
+- ⬜ Export habits to CSV 🔒 Premium
 - ⬜ Export check-in history to CSV 🔒 Premium
 - ⬜ Export stats as PDF report 🔒 Premium
 - ⬜ Export stats chart as image (PNG) 🔒 Premium
@@ -228,35 +251,40 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 ---
 
 ## 🌐 i18n & Accessibility
-- ✅ Spanish UI
-- ✅ English UI
-- ✅ Language switch at runtime (persisted)
-- ⬜ Basque (Euskera) UI
-- ⬜ Keyboard navigation
-- ⬜ Screen reader support (ARIA labels)
+- ✅ Spanish (ES) UI — full translation
+- ✅ English (EN) UI — full translation
+- ✅ Language switch at runtime (persisted in localStorage)
+- ⬜ Basque (EU) UI
+- ⬜ Keyboard navigation (Tab / Enter / Escape on all interactive elements)
+- ⬜ Screen reader support (ARIA labels, roles, live regions)
+- ⬜ High-contrast mode
 
 ---
 
 ## 🎨 Appearance
 - ✅ Light mode
 - ✅ Dark mode
-- ✅ System theme (auto)
-- ⬜ Custom accent color
+- ✅ System theme (auto, follows OS preference)
+- ✅ Responsive layout — sidebar on desktop, icon-only on tablet (≤900px), bottom nav on mobile (≤600px)
+- ⬜ Custom accent color picker
 - ⬜ Compact / comfortable density toggle
-- ⬜ Custom app icon
-- ⬜ Responsive layout for small screens (tablet / mobile web)
+- ⬜ Custom app icon (currently using Tauri default)
+- ⬜ Font size / scale setting
 
 ---
 
 ## 🗃️ Data Management
-- ✅ Archive habit (hide without deleting)
+- ✅ Archive habit (hidden from Today, visible in Habits → "show archived")
 - ✅ Unarchive habit
-- ✅ Delete habit (with confirmation)
-- ⬜ Bulk delete / bulk archive
+- ✅ Delete habit (with confirmation dialog)
+- ✅ Edit habit (all fields editable)
+- ✅ Skip habit on a specific day (exceptions stored in `skips` table, restorable)
+- ✅ Fixed-position context menu (⋮) on habit rows and cards — works even on archived cards
+- ⬜ Bulk delete / bulk archive (select multiple)
 - ⬜ Reorder habits (drag and drop)
-- ⬜ Backup database manually
-- ⬜ Restore database from backup
-- ⬜ Clear all data (reset app)
+- ⬜ Manual database backup (save .db file to disk)
+- ⬜ Restore database from backup file
+- ⬜ Clear all data (reset app to factory state)
 
 ---
 
@@ -272,12 +300,12 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 > Target: same codebase across all platforms via Tauri (desktop) + Tauri Mobile + responsive web build.
 
 - ✅ Windows — dev build running
-- ⬜ Windows — production .exe installer
+- ⬜ Windows — production .exe installer (build untested)
 - ⬜ macOS — build tested (.dmg)
 - ⬜ Linux — build tested (.AppImage / .deb)
-- ⬜ Android — APK via Tauri Mobile
+- ⬜ Android — APK via Tauri Mobile (bottom nav ready, untested on real device)
 - ⬜ iOS — IPA via Tauri Mobile (requires macOS + Apple Developer account)
-- ⬜ Web app (PWA) — browser build with localStorage fallback
+- ⬜ Web app (PWA) — browser build with localStorage / IndexedDB fallback
 - ⬜ PWA installable (manifest + service worker)
 - ⬜ GitHub Releases with auto-update (Tauri updater plugin)
 - ⬜ Play Store submission
@@ -293,6 +321,8 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ⬜ CI pipeline (GitHub Actions — type check + tests on PR)
 - ⬜ Error boundary (catch React crashes gracefully)
 - ⬜ Loading skeletons instead of "Loading..." text
+- ⬜ Empty states with illustrations (not just text)
+- ⬜ Toast notifications for save / error feedback
 
 ---
 
@@ -301,38 +331,39 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 | Area | Done | Partial | Pending |
 |---|---|---|---|
 | Authentication | 0 | 0 | 9 |
-| User roles | 0 | 0 | 14 |
+| User roles / plans | 7 (arch) | 0 | 20 |
 | Monetization | 0 | 0 | 7 |
-| Habit creation | 6 | 0 | 5 |
-| Categories | 4 | 0 | 3 |
-| Frequency & scheduling | 3 | 0 | 6 |
-| Calendar view | 0 | 0 | 16 |
-| Daily check-in | 5 | 0 | 4 |
-| Streaks | 2 | 0 | 3 |
-| Statistics | 4 | 0 | 5 |
+| Habit creation | 12 | 0 | 8 |
+| Categories | 5 | 0 | 3 |
+| Frequency & scheduling | 8 | 0 | 3 |
+| Calendar views | 12 | 0 | 5 |
+| Daily check-in | 15 | 0 | 5 |
+| Streaks | 3 | 0 | 3 |
+| Statistics | 5 | 0 | 6 |
 | Reminders | 0 | 2 | 4 |
-| Import | 0 | 0 | 4 |
+| Import | 3 | 0 | 2 |
 | Export | 1 | 0 | 4 |
 | Gamification | 0 | 0 | 5 |
-| i18n & a11y | 3 | 0 | 3 |
-| Appearance | 3 | 0 | 4 |
-| Data management | 3 | 0 | 5 |
+| i18n & a11y | 3 | 0 | 4 |
+| Appearance | 4 | 0 | 4 |
+| Data management | 6 | 0 | 5 |
 | Sync | 0 | 0 | 4 |
 | Platform support | 1 | 0 | 10 |
-| Quality | 0 | 0 | 5 |
-| **Total** | **35** | **2** | **120** |
+| Quality | 0 | 0 | 7 |
+| **Total** | **85** | **2** | **118** |
 
 ---
 
-## 🗺️ Suggested build order
+## 🗺️ Build order (suggested)
 
 | Phase | Focus | Prerequisite |
 |---|---|---|
-| **1 — Core** ✅ | Habit type Good/Normal/Bad, import/export JSON, reminder scheduling | — |
-| **2 — Calendar** | Time blocks on habits, daily/weekly/monthly calendar view | Phase 1 |
-| **3 — Auth** | Anonymous login, email login, account upgrade | — |
-| **4 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |
-| **5 — Platform** | Responsive layout, web PWA build, Linux/macOS builds | Core |
-| **6 — Mobile** | Android APK via Tauri Mobile | Platform |
-| **7 — Cloud** | Supabase sync, multi-device | Auth + Mobile |
-| **8 — Premium features** | Heatmap, streak freeze, gamification, PDF export | Cloud |
+| **1 — Core** ✅ | Habit CRUD, categories, scheduling, check-in, stats, import/export | — |
+| **2 — UX polish** | Today button in cal nav, skip with reason, filter by category, habit reorder, empty state illustrations, toasts | Core |
+| **3 — Notifications** | Background OS notification scheduling (Tauri cron), daily summary push | Core |
+| **4 — Auth** | Anonymous login, email login, account upgrade | — |
+| **5 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |
+| **6 — Platform** | Production Windows build, macOS build, Linux build, PWA | Core |
+| **7 — Mobile** | Android APK + iOS via Tauri Mobile, test bottom nav on device | Platform |
+| **8 — Cloud** | Supabase sync, multi-device, conflict resolution | Auth + Mobile |
+| **9 — Premium features** | Heatmap, streak freeze, gamification, CSV/PDF export, leaderboard | Cloud |
