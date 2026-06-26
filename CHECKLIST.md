@@ -59,10 +59,12 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ✅ Custom color
 - ✅ Custom icon (emoji picker)
 - ✅ Assign to category
-- ⬜ Habit type: **Good** (build) vs **Bad** (break)
+- ✅ Habit type: **Good** / **Normal** / **Bad**
 - ⬜ Habit difficulty level (Easy / Medium / Hard)
 - ⬜ Habit goal (e.g. "30 consecutive days")
 - ⬜ Preset habit templates (e.g. "Drink water", "Exercise", "No sugar")
+- ⬜ Optional start time + end time per habit (e.g. 07:00–07:30)
+- ⬜ Timeless mode (no schedule, just track completion)
 
 ---
 
@@ -84,7 +86,37 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 - ⬜ X times per week (e.g. "3 times per week", any days)
 - ⬜ X times per month
 - ⬜ Every N days (e.g. every 3 days)
-- ⬜ Start date / end date for a habit
+- ⬜ Start date / end date for a habit (habit lifespan)
+- ⬜ Time block per habit: optional start time + end time (e.g. 07:00–07:30)
+- ⬜ Timeless mode: mark habit as "no fixed time"
+
+---
+
+## 📆 Calendar View
+> Habits with a time block appear as events on the calendar. Timeless habits appear as all-day items.
+
+### Views
+- ⬜ **Daily view** — hour-by-hour timeline of the day's habits (like Google Calendar day view)
+- ⬜ **Weekly view** — 7-column grid with time blocks per habit per day
+- ⬜ **Monthly view** — month grid showing completion dots / streaks per day
+- ⬜ Switch between views (toggle: Day / Week / Month)
+- ⬜ Navigate to previous / next period (arrows + "Today" button)
+- ⬜ Click on a day in Month view → jump to Daily view for that day
+
+### Events & interaction
+- ⬜ Habits with start+end time shown as colored time-block events
+- ⬜ Timeless habits shown as all-day chips at top of day/week column
+- ⬜ Click event → mark as done / avoided directly from calendar
+- ⬜ Click event → open detail panel (note, streak, stats)
+- ⬜ Drag event to reschedule (change time block for that day only)
+- ⬜ Color-coded by habit color
+- ⬜ Completed events visually distinct (e.g. faded + checkmark)
+- ⬜ Overflow indicator when too many habits overlap (e.g. "+2 more")
+
+### Data
+- ⬜ Calendar reads from existing `logs` table (no new table needed for basic view)
+- ⬜ Time block stored in habits table (`start_time`, `end_time` columns)
+- ⬜ Per-day override of time block (e.g. "today I'll do it at 8 instead of 7")
 
 ---
 
@@ -235,15 +267,16 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 | Authentication | 0 | 0 | 9 |
 | User roles | 0 | 0 | 14 |
 | Monetization | 0 | 0 | 7 |
-| Habit creation | 5 | 0 | 4 |
+| Habit creation | 6 | 0 | 5 |
 | Categories | 4 | 0 | 3 |
-| Frequency | 3 | 0 | 4 |
+| Frequency & scheduling | 3 | 0 | 6 |
+| Calendar view | 0 | 0 | 16 |
 | Daily check-in | 5 | 0 | 4 |
 | Streaks | 2 | 0 | 3 |
 | Statistics | 4 | 0 | 5 |
 | Reminders | 0 | 2 | 4 |
 | Import | 0 | 0 | 4 |
-| Export | 0 | 0 | 5 |
+| Export | 1 | 0 | 4 |
 | Gamification | 0 | 0 | 5 |
 | i18n & a11y | 3 | 0 | 3 |
 | Appearance | 3 | 0 | 4 |
@@ -251,7 +284,7 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 | Sync | 0 | 0 | 4 |
 | Platform support | 1 | 0 | 10 |
 | Quality | 0 | 0 | 5 |
-| **Total** | **33** | **2** | **102** |
+| **Total** | **35** | **2** | **120** |
 
 ---
 
@@ -259,10 +292,11 @@ Legend: ✅ Done · 🔧 Partial · ⬜ Pending
 
 | Phase | Focus | Prerequisite |
 |---|---|---|
-| **1 — Core** | Habit type Good/Bad, import/export JSON, reminder scheduling | — |
-| **2 — Auth** | Anonymous login, email login, account upgrade | — |
-| **3 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |
-| **4 — Platform** | Responsive layout, web PWA build, Linux/macOS builds | Core |
-| **5 — Mobile** | Android APK via Tauri Mobile | Platform |
-| **6 — Cloud** | Supabase sync, multi-device | Auth + Mobile |
-| **7 — Premium features** | Heatmap, streak freeze, gamification, PDF export | Cloud |
+| **1 — Core** ✅ | Habit type Good/Normal/Bad, import/export JSON, reminder scheduling | — |
+| **2 — Calendar** | Time blocks on habits, daily/weekly/monthly calendar view | Phase 1 |
+| **3 — Auth** | Anonymous login, email login, account upgrade | — |
+| **4 — Roles** | Free/Premium flag, feature gates, ad integration | Auth |
+| **5 — Platform** | Responsive layout, web PWA build, Linux/macOS builds | Core |
+| **6 — Mobile** | Android APK via Tauri Mobile | Platform |
+| **7 — Cloud** | Supabase sync, multi-device | Auth + Mobile |
+| **8 — Premium features** | Heatmap, streak freeze, gamification, PDF export | Cloud |
