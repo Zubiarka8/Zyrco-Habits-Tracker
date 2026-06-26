@@ -27,6 +27,8 @@ export interface HabitCalendarProps {
   today: string;        // yyyy-MM-dd
   habits: Habit[];
   rangeLogs: Log[];
+  /** Skip rows — habits excluded from a specific day by the user */
+  rangeSkips?: { habit_id: string; date: string }[];
   onViewChange: (v: CalendarView) => void;
   onDateSelect: (date: string) => void;
   onNavigate: (dir: "prev" | "next") => void;
@@ -59,9 +61,19 @@ interface DayInfo {
  * Bad habits: clicking them means the user DID the bad thing (failure).
  * Not clicking = they didn't do it (no indicator needed).
  */
-function getDayInfo(date: Date, habits: Habit[], logs: Log[]): DayInfo {
+function getDayInfo(
+  date: Date,
+  habits: Habit[],
+  logs: Log[],
+  skips?: { habit_id: string; date: string }[]
+): DayInfo {
   const dateStr = format(date, "yyyy-MM-dd");
-  const due = habits.filter((h) => isHabitDueOnDay(h, date));
+  const skippedIds = new Set(
+    (skips ?? []).filter((s) => s.date === dateStr).map((s) => s.habit_id)
+  );
+  const due = habits
+    .filter((h) => isHabitDueOnDay(h, date))
+    .filter((h) => !skippedIds.has(h.id));
 
   if (due.length === 0) return { dots: [], status: "partial" };
 
@@ -224,6 +236,7 @@ function MonthView({
   today,
   habits,
   rangeLogs,
+  rangeSkips,
   onDateSelect,
 }: {
   viewDate: Date;
@@ -231,6 +244,7 @@ function MonthView({
   today: string;
   habits: Habit[];
   rangeLogs: Log[];
+  rangeSkips?: { habit_id: string; date: string }[];
   onDateSelect: (d: string) => void;
 }) {
   const { t } = useTranslation();
@@ -259,7 +273,7 @@ function MonthView({
           const isToday  = dateStr === today;
           const isSel    = dateStr === selectedDate;
           const { dots, status } = inMonth
-            ? getDayInfo(day, habits, rangeLogs)
+            ? getDayInfo(day, habits, rangeLogs, rangeSkips)
             : { dots: [], status: "partial" as DayStatus };
 
           return (
@@ -435,6 +449,7 @@ export function HabitCalendar({
   today,
   habits,
   rangeLogs,
+  rangeSkips,
   onViewChange,
   onDateSelect,
   onNavigate,
@@ -565,6 +580,7 @@ export function HabitCalendar({
           today={today}
           habits={habits}
           rangeLogs={rangeLogs}
+          rangeSkips={rangeSkips}
           onDateSelect={handleDateSelect}
         />
       )}

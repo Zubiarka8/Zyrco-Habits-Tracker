@@ -15,12 +15,14 @@ import {
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
   MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
+  CalendarOff, RotateCcw,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
 import { useReminders } from "../hooks/useReminders";
+import { useSkips, useRangeSkips } from "../hooks/useSkips";
 import { upsertLog } from "../db/database";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
@@ -217,6 +219,39 @@ function MonthStrip({
   );
 }
 
+// ── SkippedSection ────────────────────────────────────────
+
+/** Shows habits that were skipped on this day with a one-click restore. */
+function SkippedSection({
+  habits,
+  onUnskip,
+}: {
+  habits: Habit[];
+  onUnskip: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="skipped-section">
+      <span className="skipped-label">{t("today.skippedSection")}</span>
+      {habits.map((h) => (
+        <div key={h.id} className="skipped-row">
+          <span className="skipped-name">
+            <span className="skipped-icon">{h.icon}</span>
+            {h.name}
+          </span>
+          <button
+            className="icon-btn skipped-restore-btn"
+            onClick={() => onUnskip(h.id)}
+            title={t("today.restoreDay")}
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Today ─────────────────────────────────────────────────
 
 export function Today() {
@@ -253,6 +288,8 @@ export function Today() {
     calRange.start,
     calRange.end
   );
+  const { isSkipped, skip, unskip } = useSkips(selectedDate);
+  const { rangeSkips } = useRangeSkips(calRange.start, calRange.end);
 
   useReminders(habits, selectedDate === todayStr ? logs : []);
 
@@ -333,7 +370,9 @@ export function Today() {
 
   // ── Due habits for the selected date ─────────────────────
   const selectedDateObj = parseISO(selectedDate + "T00:00:00");
-  const dueHabits = habits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
+  const allDueHabits = habits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
+  const dueHabits     = allDueHabits.filter((h) => !isSkipped(h.id));
+  const skippedHabits = allDueHabits.filter((h) => isSkipped(h.id));
 
   const getLog = useCallback(
     (habitId: string) => logs.find((l) => l.habit_id === habitId),
@@ -428,6 +467,7 @@ export function Today() {
                 today={todayStr}
                 habits={habits}
                 rangeLogs={rangeLogs}
+                rangeSkips={rangeSkips}
                 onViewChange={handleViewChange}
                 onDateSelect={handleDateSelectFromCal}
                 onNavigate={handleNavigate}
@@ -464,7 +504,7 @@ export function Today() {
               </div>
 
               <div className="cal-day-panel-body">
-                {dueHabits.length === 0 && !logsLoading && (
+                {dueHabits.length === 0 && skippedHabits.length === 0 && !logsLoading && (
                   <div className="empty-state">
                     <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
                     {isToday && (
@@ -485,6 +525,13 @@ export function Today() {
 
                 {dueHabits.length > 0 && (
                   <HabitList habits={dueHabits} {...habitListProps} />
+                )}
+
+                {skippedHabits.length > 0 && (
+                  <SkippedSection
+                    habits={skippedHabits}
+                    onUnskip={(id) => unskip(id)}
+                  />
                 )}
               </div>
 
@@ -569,6 +616,13 @@ export function Today() {
 
           <HabitList habits={dueHabits} {...habitListProps} />
 
+          {skippedHabits.length > 0 && (
+            <SkippedSection
+              habits={skippedHabits}
+              onUnskip={(id) => unskip(id)}
+            />
+          )}
+
           {noteHabit && (
             <NoteModal
               open={true}
@@ -587,6 +641,24 @@ export function Today() {
           className="dropdown-menu dropdown-menu--fixed"
           style={{ top: menu.y, left: menu.x }}
         >
+          {isSkipped(menuHabit.id) ? (
+            <button
+              className="dropdown-item"
+              onClick={() => { unskip(menuHabit.id); setMenu(null); }}
+            >
+              <RotateCcw size={14} />
+              {t("today.restoreDay")}
+            </button>
+          ) : (
+            <button
+              className="dropdown-item"
+              onClick={() => { skip(menuHabit.id); setMenu(null); }}
+            >
+              <CalendarOff size={14} />
+              {t("today.skipDay")}
+            </button>
+          )}
+          <div className="dropdown-divider" />
           <button className="dropdown-item" onClick={() => openEdit(menuHabit)}>
             <Edit2 size={14} />
             {t("habits.edit")}

@@ -29,7 +29,10 @@
     "viewWeekly": "Semanal",
     "viewDaily": "Diario",
     "calToday": "Hoy",
-    "noHabitsDate": "No hay hábitos programados para este día."
+    "noHabitsDate": "No hay hábitos programados para este día.",
+    "skipDay": "Saltar este día",
+    "restoreDay": "Restaurar",
+    "skippedSection": "Saltados hoy"
   },
   "habits": {
     "title": "Mis Hábitos",

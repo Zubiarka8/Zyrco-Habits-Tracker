@@ -150,59 +150,51 @@ export function Habits() {
                       setMenu(
                         menu?.habitId === habit.id
                           ? null
-                          : { habitId: habit.id, x: rect.left, y: rect.bottom }
+                          : { habitId: habit.id, x: rect.right, y: rect.bottom }
                       );
                     }}
                   >
                     <MoreVertical size={16} />
                   </button>
                 </div>
-
-                {menu?.habitId === habit.id && (
-                  <div className="dropdown-menu">
-                    <button
-                      className="dropdown-item"
-                      onClick={() => openEdit(habit)}
-                    >
-                      <Edit2 size={14} />
-                      {t("habits.edit")}
-                    </button>
-                    <button
-                      className="dropdown-item"
-                      onClick={() => handleArchive(habit)}
-                    >
-                      {habit.archived ? (
-                        <>
-                          <ArchiveRestore size={14} />
-                          {t("habits.unarchive")}
-                        </>
-                      ) : (
-                        <>
-                          <Archive size={14} />
-                          {t("habits.archive")}
-                        </>
-                      )}
-                    </button>
-                    <button
-                      className="dropdown-item dropdown-item-danger"
-                      onClick={() => confirmDelete(habit)}
-                    >
-                      <Trash2 size={14} />
-                      {t("habits.delete")}
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
       )}
 
+      {menu && (() => {
+        const menuHabit = habits.find((h) => h.id === menu.habitId) ?? null;
+        if (!menuHabit) return null;
+        return (
+          <div
+            className="dropdown-menu dropdown-menu--fixed"
+            style={{ top: menu.y, left: menu.x }}
+          >
+            <button className="dropdown-item" onClick={() => openEdit(menuHabit)}>
+              <Edit2 size={14} />
+              {t("habits.edit")}
+            </button>
+            <button className="dropdown-item" onClick={() => handleArchive(menuHabit)}>
+              {menuHabit.archived ? (
+                <><ArchiveRestore size={14} />{t("habits.unarchive")}</>
+              ) : (
+                <><Archive size={14} />{t("habits.archive")}</>
+              )}
+            </button>
+            <button
+              className="dropdown-item dropdown-item-danger"
+              onClick={() => confirmDelete(menuHabit)}
+            >
+              <Trash2 size={14} />
+              {t("habits.delete")}
+            </button>
+          </div>
+        );
+      })()}
+
       {menu && (
-        <div
-          className="menu-backdrop"
-          onClick={() => setMenu(null)}
-        />
+        <div className="menu-backdrop" onClick={() => setMenu(null)} />
       )}
 
       <Modal

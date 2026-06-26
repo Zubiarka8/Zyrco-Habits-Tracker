@@ -124,6 +124,17 @@ async function initSchema(database: Database): Promise<void> {
     )
   `);
 
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS skips (
+      id TEXT PRIMARY KEY,
+      habit_id TEXT NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
+      date TEXT NOT NULL,
+      user_id TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE(habit_id, date)
+    )
+  `);
+
   // Seed a default free subscription for the current local user if none exists
   {
     const seedUid = getLocalUserId();
@@ -218,7 +229,7 @@ export async function migrateLocalDataToUser(newUserId: string): Promise<void> {
   if (oldId === newUserId) return; // already migrated or same user
 
   const database = await getDb();
-  for (const table of ["habits", "categories", "todos", "logs", "subscriptions"]) {
+  for (const table of ["habits", "categories", "todos", "logs", "subscriptions", "skips"]) {
     await database.execute(
       `UPDATE ${table} SET user_id = $1 WHERE user_id = $2`,
       [newUserId, oldId]
@@ -573,6 +584,43 @@ type RawTodo = Omit<Todo, "completed"> & { completed: number };
 
 function parseTodo(raw: RawTodo): Todo {
   return { ...raw, completed: raw.completed === 1 };
+}
+
+// ---- Skips (per-day habit exceptions) ----
+
+export async function fetchSkipsForDate(date: string): Promise<{ habit_id: string; date: string }[]> {
+  const db = await getDb();
+  return db.select<{ habit_id: string; date: string }[]>(
+    "SELECT habit_id, date FROM skips WHERE date = $1 AND user_id = $2",
+    [date, getLocalUserId()]
+  );
+}
+
+export async function fetchSkipsForRange(
+  startDate: string,
+  endDate: string
+): Promise<{ habit_id: string; date: string }[]> {
+  const db = await getDb();
+  return db.select<{ habit_id: string; date: string }[]>(
+    "SELECT habit_id, date FROM skips WHERE date >= $1 AND date <= $2 AND user_id = $3",
+    [startDate, endDate, getLocalUserId()]
+  );
+}
+
+export async function skipHabitOnDate(habitId: string, date: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "INSERT OR IGNORE INTO skips (id, habit_id, date, user_id, created_at) VALUES ($1,$2,$3,$4,$5)",
+    [crypto.randomUUID(), habitId, date, getLocalUserId(), new Date().toISOString()]
+  );
+}
+
+export async function unskipHabitOnDate(habitId: string, date: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM skips WHERE habit_id = $1 AND date = $2 AND user_id = $3",
+    [habitId, date, getLocalUserId()]
+  );
 }
 
 export async function fetchTodos(): Promise<Todo[]> {
