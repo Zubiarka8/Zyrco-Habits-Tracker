@@ -19,7 +19,11 @@
     "note": "Nota",
     "notePlaceholder": "¿Cómo fue hoy?",
     "pending": "Pendientes",
-    "done": "Hechos"
+    "done": "Hechos",
+    "checkGood": "Marcar como hecho",
+    "checkBad": "Marcar como evitado",
+    "doneGood": "Hecho",
+    "doneBad": "Evitado"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -37,6 +41,13 @@
     "targetDays": "Días de la semana",
     "color": "Color",
     "icon": "Icono",
+    "type": "Tipo de hábito",
+    "typeGood": "Hábito positivo",
+    "typeGoodDesc": "Construir un comportamiento positivo",
+    "typeNormal": "Hábito neutro",
+    "typeNormalDesc": "Ni bueno ni malo, solo regístralo",
+    "typeBad": "Hábito negativo",
+    "typeBadDesc": "Romper un comportamiento negativo",
     "reminder": "Activar recordatorio",
     "reminderTime": "Hora del recordatorio",
     "archive": "Archivar",
@@ -94,7 +105,17 @@
     "about": "Acerca de",
     "version": "Versión",
     "categories": "Categorías",
-    "manageCats": "Gestionar categorías"
+    "manageCats": "Gestionar categorías",
+    "dataTitle": "Importar / Exportar",
+    "exportBtn": "Exportar datos",
+    "exportDesc": "Descarga todos los hábitos, categorías e historial como JSON",
+    "importBtn": "Importar datos",
+    "importDesc": "Combina hábitos desde un archivo JSON exportado previamente",
+    "importSuccess": "Importados: {{habits}} hábitos, {{categories}} categorías, {{logs}} registros",
+    "importError": "Archivo inválido. Asegúrate de que sea un export de Zyrco.",
+    "reminderActive": "Recordatorios activos",
+    "reminderInactive": "Recordatorios inactivos",
+    "enableReminders": "Activar recordatorios"
   },
   "common": {
     "save": "Guardar",

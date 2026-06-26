@@ -825,6 +825,96 @@ a { text-decoration: none; color: inherit; }
 .confirm-text { color: var(--color-muted); font-size: 14px; margin-bottom: 8px; }
 .confirm-name { font-weight: 600; font-size: 15px; }
 
+/* ── Habit type ─────────────────────────────────────────── */
+.type-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.type-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-border);
+  background: var(--color-surface-alt);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 22px;
+}
+
+.type-btn:hover { border-color: var(--color-muted); }
+
+.type-btn-title { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.type-btn-desc { font-size: 11px; color: var(--color-muted); margin-top: 1px; }
+
+.type-btn-active-good {
+  border-color: var(--color-success);
+  background: #22c55e11;
+}
+
+.type-btn-active-normal {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.type-btn-active-bad {
+  border-color: var(--color-danger);
+  background: #ef444411;
+}
+
+.type-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+.type-pill-good {
+  background: #22c55e18;
+  color: #16a34a;
+}
+
+.type-pill-normal {
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+
+.type-pill-bad {
+  background: #ef444418;
+  color: #dc2626;
+}
+
+.check-btn-avoided { color: #dc2626; }
+
+/* ── Import / Export ────────────────────────────────────── */
+.import-export { display: flex; flex-direction: column; gap: 14px; }
+
+.import-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.import-status-success {
+  background: #22c55e18;
+  color: #16a34a;
+  border: 1px solid #22c55e33;
+}
+
+.import-status-error {
+  background: #ef444418;
+  color: #dc2626;
+  border: 1px solid #ef444433;
+}
+
 /* ── Utility ────────────────────────────────────────────── */
 .text-muted { color: var(--color-muted); }
 .text-sm { font-size: 13px; }

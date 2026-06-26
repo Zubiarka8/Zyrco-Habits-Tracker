@@ -19,7 +19,11 @@
     "note": "Note",
     "notePlaceholder": "How did it go today?",
     "pending": "Pending",
-    "done": "Done"
+    "done": "Done",
+    "checkGood": "Mark as done",
+    "checkBad": "Mark as avoided",
+    "doneGood": "Done",
+    "doneBad": "Avoided"
   },
   "habits": {
     "title": "My Habits",
@@ -37,6 +41,13 @@
     "targetDays": "Days of the week",
     "color": "Color",
     "icon": "Icon",
+    "type": "Habit type",
+    "typeGood": "Good habit",
+    "typeGoodDesc": "Build a positive behavior",
+    "typeNormal": "Neutral habit",
+    "typeNormalDesc": "Neither good nor bad, just track it",
+    "typeBad": "Bad habit",
+    "typeBadDesc": "Break a negative behavior",
     "reminder": "Enable reminder",
     "reminderTime": "Reminder time",
     "archive": "Archive",
@@ -94,7 +105,17 @@
     "about": "About",
     "version": "Version",
     "categories": "Categories",
-    "manageCats": "Manage categories"
+    "manageCats": "Manage categories",
+    "dataTitle": "Import / Export",
+    "exportBtn": "Export data",
+    "exportDesc": "Download all habits, categories and history as JSON",
+    "importBtn": "Import data",
+    "importDesc": "Merge habits from a previously exported JSON file",
+    "importSuccess": "Imported: {{habits}} habits, {{categories}} categories, {{logs}} check-ins",
+    "importError": "Invalid file. Make sure it is a Zyrco export.",
+    "reminderActive": "Reminders active",
+    "reminderInactive": "Reminders inactive",
+    "enableReminders": "Enable reminders"
   },
   "common": {
     "save": "Save",

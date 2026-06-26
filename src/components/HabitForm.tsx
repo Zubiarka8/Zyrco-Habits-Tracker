@@ -29,6 +29,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [categoryId, setCategoryId] = useState(initial?.category_id ?? "");
+  const [habitType, setHabitType] = useState<Habit["type"]>(initial?.type ?? "normal");
   const [frequency, setFrequency] = useState<Habit["frequency"]>(
     initial?.frequency ?? "daily"
   );
@@ -59,6 +60,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       target_days: frequency === "custom" ? targetDays : null,
       color,
       icon,
+      type: habitType,
       reminder_enabled: reminderEnabled,
       reminder_time: reminderEnabled ? reminderTime : null,
     });
@@ -66,6 +68,45 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
 
   return (
     <form onSubmit={handleSubmit} className="habit-form">
+      <div className="form-field">
+        <label className="field-label">{t("habits.type")}</label>
+        <div className="type-toggle">
+          <button
+            type="button"
+            className={`type-btn type-btn-good ${habitType === "good" ? "type-btn-active-good" : ""}`}
+            onClick={() => setHabitType("good")}
+          >
+            <span>💚</span>
+            <div>
+              <div className="type-btn-title">{t("habits.typeGood")}</div>
+              <div className="type-btn-desc">{t("habits.typeGoodDesc")}</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`type-btn type-btn-normal ${habitType === "normal" ? "type-btn-active-normal" : ""}`}
+            onClick={() => setHabitType("normal")}
+          >
+            <span>⚪</span>
+            <div>
+              <div className="type-btn-title">{t("habits.typeNormal")}</div>
+              <div className="type-btn-desc">{t("habits.typeNormalDesc")}</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`type-btn type-btn-bad ${habitType === "bad" ? "type-btn-active-bad" : ""}`}
+            onClick={() => setHabitType("bad")}
+          >
+            <span>🚫</span>
+            <div>
+              <div className="type-btn-title">{t("habits.typeBad")}</div>
+              <div className="type-btn-desc">{t("habits.typeBadDesc")}</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       <div className="form-row">
         <div className="icon-picker-preview" style={{ background: color }}>
           {icon}

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification";
 import { useCategories } from "../hooks/useCategories";
 import { Modal } from "../components/Modal";
+import { ImportExport } from "../components/ImportExport";
 import { Plus, Trash2, Edit2 } from "lucide-react";
 import type { Category } from "../types";
 
@@ -180,6 +181,11 @@ export function Settings() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="settings-section">
+          <h2 className="section-title">{t("settings.dataTitle")}</h2>
+          <ImportExport />
         </section>
 
         <section className="settings-section">

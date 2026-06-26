@@ -131,6 +131,11 @@ export function Habits() {
                       <span className="freq-badge">
                         {t(`habits.${habit.frequency}`)}
                       </span>
+                      {habit.type !== "normal" && (
+                        <span className={`type-pill type-pill-${habit.type}`}>
+                          {habit.type === "bad" ? `🚫 ${t("habits.typeBad")}` : `💚 ${t("habits.typeGood")}`}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="habit-card-stats">

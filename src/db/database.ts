@@ -32,6 +32,7 @@ async function initSchema(database: Database): Promise<void> {
       target_days TEXT,
       color TEXT NOT NULL DEFAULT '#6366f1',
       icon TEXT NOT NULL DEFAULT '⭐',
+      type TEXT NOT NULL DEFAULT 'normal',
       reminder_enabled INTEGER NOT NULL DEFAULT 0,
       reminder_time TEXT,
       created_at TEXT NOT NULL,
@@ -50,6 +51,16 @@ async function initSchema(database: Database): Promise<void> {
       UNIQUE(habit_id, date)
     )
   `);
+
+  // Migration: add `type` column to existing DBs that don't have it yet
+  const cols = await database.select<{ name: string }[]>(
+    "PRAGMA table_info(habits)"
+  );
+  if (!cols.some((c) => c.name === "type")) {
+    await database.execute(
+      "ALTER TABLE habits ADD COLUMN type TEXT NOT NULL DEFAULT 'normal'"
+    );
+  }
 }
 
 // ---- Categories ----
@@ -102,6 +113,7 @@ type RawHabit = Omit<Habit, "target_days" | "reminder_enabled" | "archived"> & {
 function parseHabit(raw: RawHabit): Habit {
   return {
     ...raw,
+    type: (raw.type as Habit["type"]) ?? "good",
     target_days: raw.target_days ? JSON.parse(raw.target_days) : null,
     reminder_enabled: raw.reminder_enabled === 1,
     archived: raw.archived === 1,
@@ -127,8 +139,8 @@ export async function insertHabit(
   await db.execute(
     `INSERT INTO habits
       (id, name, description, category_id, frequency, target_days, color, icon,
-       reminder_enabled, reminder_time, created_at, archived)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,0)`,
+       type, reminder_enabled, reminder_time, created_at, archived)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,0)`,
     [
       id,
       data.name,
@@ -138,6 +150,7 @@ export async function insertHabit(
       data.target_days ? JSON.stringify(data.target_days) : null,
       data.color,
       data.icon,
+      data.type,
       data.reminder_enabled ? 1 : 0,
       data.reminder_time ?? null,
       created_at,
@@ -242,4 +255,81 @@ export async function updateLogNote(
     "UPDATE logs SET note = $1 WHERE habit_id = $2 AND date = $3",
     [note, habitId, date]
   );
+}
+
+// ---- Import / Export ----
+
+export interface ExportData {
+  version: number;
+  exportedAt: string;
+  categories: Category[];
+  habits: Habit[];
+  logs: Log[];
+}
+
+export async function exportAllData(): Promise<ExportData> {
+  const db = await getDb();
+  const categories = await fetchCategories();
+  const habits = await fetchHabits(true);
+  const rawLogs = await db.select<RawLog[]>("SELECT * FROM logs ORDER BY date DESC");
+  const logs = rawLogs.map(parseLog);
+  return { version: 1, exportedAt: new Date().toISOString(), categories, habits, logs };
+}
+
+export async function importData(data: ExportData): Promise<{ habits: number; categories: number; logs: number }> {
+  const db = await getDb();
+
+  const existingCats = await fetchCategories();
+  const existingCatIds = new Set(existingCats.map((c) => c.id));
+  const existingHabits = await fetchHabits(true);
+  const existingHabitIds = new Set(existingHabits.map((h) => h.id));
+  const existingRawLogs = await db.select<{ habit_id: string; date: string }[]>(
+    "SELECT habit_id, date FROM logs"
+  );
+  const existingLogKeys = new Set(existingRawLogs.map((l) => `${l.habit_id}|${l.date}`));
+
+  let cats = 0;
+  for (const cat of data.categories ?? []) {
+    if (!existingCatIds.has(cat.id)) {
+      await db.execute(
+        "INSERT INTO categories (id, name, color, icon, created_at) VALUES ($1,$2,$3,$4,$5)",
+        [cat.id, cat.name, cat.color, cat.icon, cat.created_at]
+      );
+      cats++;
+    }
+  }
+
+  let habits = 0;
+  for (const h of data.habits ?? []) {
+    if (!existingHabitIds.has(h.id)) {
+      await db.execute(
+        `INSERT INTO habits
+          (id, name, description, category_id, frequency, target_days, color, icon,
+           type, reminder_enabled, reminder_time, created_at, archived)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [
+          h.id, h.name, h.description ?? null, h.category_id ?? null,
+          h.frequency, h.target_days ? JSON.stringify(h.target_days) : null,
+          h.color, h.icon, h.type ?? "good",
+          h.reminder_enabled ? 1 : 0, h.reminder_time ?? null,
+          h.created_at, h.archived ? 1 : 0,
+        ]
+      );
+      habits++;
+    }
+  }
+
+  let logs = 0;
+  for (const l of data.logs ?? []) {
+    const key = `${l.habit_id}|${l.date}`;
+    if (!existingLogKeys.has(key)) {
+      await db.execute(
+        "INSERT INTO logs (id, habit_id, date, completed, note, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+        [l.id, l.habit_id, l.date, l.completed ? 1 : 0, l.note ?? null, l.created_at]
+      );
+      logs++;
+    }
+  }
+
+  return { habits, categories: cats, logs };
 }

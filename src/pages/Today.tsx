@@ -7,6 +7,7 @@ import { useHabits } from "../hooks/useHabits";
 import { useTodayLogs } from "../hooks/useLogs";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
+import { useReminders } from "../hooks/useReminders";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
 import type { Habit } from "../types";
@@ -18,6 +19,7 @@ export function Today() {
   const { logs, loading: logsLoading, toggle, saveNote } = useTodayLogs();
   const { categories } = useCategories();
   const { getHabitStats } = useStats();
+  useReminders(habits, logs);
 
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
 
@@ -98,9 +100,10 @@ export function Today() {
               <div className="habit-color-bar" />
 
               <button
-                className={`check-btn ${completed ? "check-btn-done" : ""}`}
+                className={`check-btn ${completed ? (habit.type === "bad" ? "check-btn-avoided" : "check-btn-done") : ""}`}
                 onClick={() => toggle(habit.id, completed)}
-                aria-label={completed ? "Uncheck" : "Check"}
+                aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
+                title={habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
               >
                 {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
               </button>
@@ -110,6 +113,11 @@ export function Today() {
                   <span className="habit-icon">{habit.icon}</span>
                   <span className="habit-name">{habit.name}</span>
                   {stats.streak > 0 && <StreakBadge streak={stats.streak} />}
+                  {habit.type !== "normal" && (
+                    <span className={`type-pill type-pill-${habit.type}`}>
+                      {habit.type === "bad" ? t("today.doneBad") : t("today.doneGood")}
+                    </span>
+                  )}
                 </div>
                 {(habit.description || category) && (
                   <div className="habit-meta">

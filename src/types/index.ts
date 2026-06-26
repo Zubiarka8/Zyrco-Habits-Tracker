@@ -15,6 +15,7 @@ export interface Habit {
   target_days: number[] | null;
   color: string;
   icon: string;
+  type: "good" | "bad" | "normal";
   reminder_enabled: boolean;
   reminder_time: string | null;
   created_at: string;
