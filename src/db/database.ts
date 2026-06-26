@@ -4,15 +4,36 @@ import type { Category, Habit, Log, Subscription, PlanType } from "../types";
 let db: Database | null = null;
 let dbInitPromise: Promise<Database> | null = null;
 
+// Polls until window.__TAURI_INTERNALS__ is injected by the webview.
+// In dev mode the IPC bridge can arrive a few ms after React mounts.
+function waitForTauriBridge(): Promise<void> {
+  if ("__TAURI_INTERNALS__" in window) return Promise.resolve();
+  return new Promise((resolve) => {
+    const id = setInterval(() => {
+      if ("__TAURI_INTERNALS__" in window) {
+        clearInterval(id);
+        resolve();
+      }
+    }, 20);
+  });
+}
+
 // Single promise ensures concurrent callers share one init — no SQLite lock races.
+// Resets on failure so the next caller can retry.
 export function getDb(): Promise<Database> {
   if (db) return Promise.resolve(db);
   if (!dbInitPromise) {
-    dbInitPromise = Database.load("sqlite:zyrco.db").then(async (conn) => {
-      await initSchema(conn);
-      db = conn;
-      return conn;
-    });
+    dbInitPromise = waitForTauriBridge()
+      .then(() => Database.load("sqlite:zyrco.db"))
+      .then(async (conn) => {
+        await initSchema(conn);
+        db = conn;
+        return conn;
+      })
+      .catch((err) => {
+        dbInitPromise = null; // allow retry on next call
+        return Promise.reject(err);
+      });
   }
   return dbInitPromise;
 }
