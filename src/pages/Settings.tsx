@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { Modal } from "../components/Modal";
 import { ImportExport } from "../components/ImportExport";
 import { Plus, Trash2, Edit2, LogOut, KeyRound } from "lucide-react";
+import { ACCENT_PALETTES, applyAccent } from "../utils/accent";
 import { PasswordInput } from "../components/PasswordInput";
 import type { Category } from "../types";
 
@@ -65,6 +66,15 @@ export function Settings() {
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("zyrco-theme") as Theme) ?? "system"
   );
+  const [accent, setAccent] = useState(
+    () => localStorage.getItem("zyrco-accent") ?? "indigo"
+  );
+
+  const handleAccent = (id: string) => {
+    setAccent(id);
+    localStorage.setItem("zyrco-accent", id);
+    applyAccent(id);
+  };
   const [graceDays, setGraceDays] = useState<number>(
     () => Math.max(0, Math.min(2, parseInt(localStorage.getItem("zyrco-grace-days") ?? "1", 10)))
   );
@@ -171,6 +181,22 @@ export function Settings() {
                 >
                   {t(`settings.theme${th.charAt(0).toUpperCase() + th.slice(1)}`)}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="setting-row" style={{ alignItems: "flex-start" }}>
+            <label className="setting-label">{t("settings.accentColor")}</label>
+            <div className="accent-swatches">
+              {ACCENT_PALETTES.map((p) => (
+                <button
+                  key={p.id}
+                  className={`accent-swatch ${accent === p.id ? "accent-swatch--active" : ""}`}
+                  style={{ background: p.primary }}
+                  title={p.label}
+                  onClick={() => handleAccent(p.id)}
+                  aria-label={p.label}
+                />
               ))}
             </div>
           </div>

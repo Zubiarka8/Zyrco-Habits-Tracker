@@ -2170,7 +2170,9 @@ a { text-decoration: none; color: inherit; }
   .sidebar { padding: 16px 8px; }
   .sidebar-brand { padding: 6px 0 16px; justify-content: center; }
   .brand-name { display: none; }
-  .nav-link span { display: none; }
+  /* Hide label spans but keep the icon-wrap visible */
+  .nav-link > span:not(.nav-icon-wrap) { display: none; }
+  .nav-icon-wrap { display: flex !important; }
   .nav-link { justify-content: center; padding: 10px; }
 
   .main-content { padding: 20px 16px; }
@@ -2235,7 +2237,10 @@ a { text-decoration: none; color: inherit; }
     align-items: center;
   }
 
-  .nav-link span { display: block; font-size: 10px; }
+  .nav-link > span:not(.nav-icon-wrap) { display: flex; font-size: 10px; align-items: center; gap: 3px; }
+  /* In column-flex nav, badge sits inline with the text, no auto-margin */
+  .nav-label-wrap { flex: unset; min-width: unset; }
+  .nav-progress { margin-left: 0; font-size: 9px; padding: 0 4px; }
 
   .sidebar-bottom {
     border-top: none;
@@ -2282,6 +2287,24 @@ a { text-decoration: none; color: inherit; }
 
   .modal-overlay { padding: 8px; }
   .modal-sm, .modal-md, .modal-lg { max-width: 100%; }
+
+  /* Period selector: wrap to 2×2 on small screens */
+  .period-selector { flex-wrap: wrap; }
+  .period-btn { flex: 1 1 calc(50% - 4px); text-align: center; }
+
+  /* Settings rows: stack label + control vertically on very narrow screens */
+  .setting-row { flex-wrap: wrap; }
+  .setting-row .btn-group { flex-wrap: wrap; }
+
+  /* Accent swatches: touch-friendly grid */
+  .accent-swatches { gap: 10px; }
+  .accent-swatch { width: 40px; height: 40px; }
+
+  /* Bottom nav safe area (Android gesture navigation) */
+  .sidebar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ── Auth screen ─────────────────────────────────────────── */
@@ -3292,6 +3315,124 @@ a { text-decoration: none; color: inherit; }
 .pause-day-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+}
+
+/* ── Skeleton shimmer (P2-09) ─────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton-slab {
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-alt) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+}
+.skeleton-row {
+  pointer-events: none;
+  opacity: 0.7;
+}
+.skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.skeleton-slab--wide  { height: 14px; width: 65%; }
+.skeleton-slab--narrow { height: 10px; width: 40%; }
+.skeleton-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-alt) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+}
+.skeleton-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-surface-alt) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+/* ── Accent color swatches (P2-04) ───────────────────────── */
+.accent-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.accent-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.accent-swatch:hover { transform: scale(1.1); }
+.accent-swatch--active {
+  border-color: var(--color-text);
+  transform: scale(1.1);
+}
+
+/* ── Category group headers (P2-01) ──────────────────────── */
+.cat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cat-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 2px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.cat-group-header:first-child { margin-top: 0; }
+.cat-group-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cat-group-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cat-group-count {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-left: auto;
+}
+.habits-group-toggle {
+  font-size: 12px;
+  color: var(--color-muted);
+  padding: 4px 8px;
 }
 
 /* ── Sidebar nav badge (P1-01) ───────────────────────────── */

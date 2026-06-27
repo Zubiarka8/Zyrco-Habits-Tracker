@@ -28,6 +28,35 @@ export function ImportExport() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportCsv = async () => {
+    const data = await exportAllData();
+    const habitMap = new Map(data.habits.map((h) => [h.id, h]));
+    const catMap = new Map(data.categories.map((c) => [c.id, c]));
+    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const header = "date,habit,category,completed,value,note\n";
+    const rows = data.logs
+      .map((l) => {
+        const habit = habitMap.get(l.habit_id);
+        const cat = habit?.category_id ? catMap.get(habit.category_id) : undefined;
+        return [
+          l.date,
+          esc(habit?.name ?? ""),
+          esc(cat?.name ?? ""),
+          l.completed ? "1" : "0",
+          l.value ?? "",
+          esc(l.note ?? ""),
+        ].join(",");
+      })
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `zyrco-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -66,7 +95,18 @@ export function ImportExport() {
         </div>
         <button className="btn btn-ghost btn-sm" onClick={handleExport}>
           <Download size={14} />
-          {t("settings.exportBtn")}
+          JSON
+        </button>
+      </div>
+
+      <div className="setting-row">
+        <div>
+          <p className="setting-label">{t("settings.exportCsvBtn")}</p>
+          <p className="text-muted text-sm">{t("settings.exportCsvDesc")}</p>
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={handleExportCsv}>
+          <Download size={14} />
+          CSV
         </button>
       </div>
 

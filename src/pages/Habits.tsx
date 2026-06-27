@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +10,7 @@ import { Modal } from "../components/Modal";
 import { HabitForm } from "../components/HabitForm";
 import { StreakBadge } from "../components/StreakBadge";
 import { RetroLogModal } from "../components/RetroLogModal";
+import { SkeletonHabitCard } from "../components/Skeleton";
 import type { Habit } from "../types";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
@@ -29,6 +30,7 @@ export function Habits() {
   const [retroHabit, setRetroHabit] = useState<Habit | null>(null);
   const [pauseHabit, setPauseHabit] = useState<Habit | null>(null);
   const [pendingCreate, setPendingCreate] = useState<Omit<Habit, "id" | "created_at" | "archived"> | null>(null);
+  const [groupByCategory, setGroupByCategory] = useState(true);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const activeCount = habits.filter((h) => !h.archived && !(h.paused_until && h.paused_until > today)).length;
@@ -85,13 +87,112 @@ export function Habits() {
     setDeleteTarget(null);
   };
 
-  if (loading) return <div className="page-loading">{t("common.loading")}</div>;
+  // Group habits by category when groupByCategory is on and categories exist
+  const grouped = useMemo(() => {
+    if (!groupByCategory || categories.length === 0) return null;
+    const groups: { category: typeof categories[0] | null; habits: Habit[] }[] = [];
+    categories.forEach((cat) => {
+      const catHabits = habits.filter((h) => h.category_id === cat.id);
+      if (catHabits.length > 0) groups.push({ category: cat, habits: catHabits });
+    });
+    const uncategorized = habits.filter((h) => !h.category_id);
+    if (uncategorized.length > 0) groups.push({ category: null, habits: uncategorized });
+    return groups;
+  }, [habits, categories, groupByCategory]);
+
+  const renderHabitCard = (habit: Habit) => {
+    const stats = getHabitStats(habit.id);
+    const category = categories.find((c) => c.id === habit.category_id);
+    return (
+      <div
+        key={habit.id}
+        className={`habit-card ${habit.archived ? "habit-card-archived" : ""}`}
+        style={{ "--habit-color": habit.color } as React.CSSProperties}
+      >
+        <div className="habit-card-accent" />
+        <div className="habit-card-body">
+          <div className="habit-card-icon" style={{ background: habit.color + "22" }}>
+            <span style={{ fontSize: 22 }}>{habit.icon}</span>
+          </div>
+          <div className="habit-card-info">
+            <div className="habit-name-row">
+              <span className="habit-name">{habit.name}</span>
+              {habit.archived && (
+                <span className="archived-badge">{t("habits.archived")}</span>
+              )}
+              {!habit.archived && habit.paused_until && habit.paused_until > today && (
+                <span className="paused-badge">⏸ {t("habits.paused")}</span>
+              )}
+            </div>
+            {habit.description && (
+              <p className="habit-desc">{habit.description}</p>
+            )}
+            <div className="habit-card-meta">
+              {category && !groupByCategory && (
+                <span
+                  className="category-badge"
+                  style={{ background: category.color + "22", color: category.color }}
+                >
+                  {category.icon} {category.name}
+                </span>
+              )}
+              <span className="freq-badge">{t(`habits.${habit.frequency}`)}</span>
+              {habit.type !== "normal" && (
+                <span className={`type-pill type-pill-${habit.type}`}>
+                  {habit.type === "bad" ? `🚫 ${t("habits.typeBad")}` : `💚 ${t("habits.typeGood")}`}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="habit-card-stats">
+            <StreakBadge streak={stats.streak} />
+            <span className="completion-rate">{stats.completionRate}%</span>
+          </div>
+          <button
+            className="icon-btn menu-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setMenu(
+                menu?.habitId === habit.id
+                  ? null
+                  : { habitId: habit.id, x: rect.right, y: rect.bottom }
+              );
+            }}
+          >
+            <MoreVertical size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="habits-grid">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <SkeletonHabitCard key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">{t("habits.title")}</h1>
         <div className="header-actions">
+          {categories.length > 0 && (
+            <button
+              className="btn btn-ghost btn-sm habits-group-toggle"
+              onClick={() => setGroupByCategory((v) => !v)}
+              title={groupByCategory ? t("habits.flatList") : t("habits.groupByCategory")}
+            >
+              {groupByCategory ? t("habits.flatList") : t("habits.groupByCategory")}
+            </button>
+          )}
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setIncludeArchived((v) => !v)}
@@ -115,80 +216,28 @@ export function Habits() {
             {t("habits.new")}
           </button>
         </div>
+      ) : grouped ? (
+        <div className="habits-grid">
+          {grouped.map(({ category, habits: groupHabits }) => (
+            <div key={category?.id ?? "__none"} className="cat-group">
+              <div className="cat-group-header">
+                {category ? (
+                  <>
+                    <span className="cat-group-dot" style={{ background: category.color }} />
+                    <span className="cat-group-name">{category.icon} {category.name}</span>
+                  </>
+                ) : (
+                  <span className="cat-group-name">📁 {t("habits.noCategory")}</span>
+                )}
+                <span className="cat-group-count">{groupHabits.length}</span>
+              </div>
+              {groupHabits.map(renderHabitCard)}
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="habits-grid">
-          {habits.map((habit) => {
-            const stats = getHabitStats(habit.id);
-            const category = categories.find((c) => c.id === habit.category_id);
-
-            return (
-              <div
-                key={habit.id}
-                className={`habit-card ${habit.archived ? "habit-card-archived" : ""}`}
-                style={{ "--habit-color": habit.color } as React.CSSProperties}
-              >
-                <div className="habit-card-accent" />
-                <div className="habit-card-body">
-                  <div className="habit-card-icon" style={{ background: habit.color + "22" }}>
-                    <span style={{ fontSize: 22 }}>{habit.icon}</span>
-                  </div>
-                  <div className="habit-card-info">
-                    <div className="habit-name-row">
-                      <span className="habit-name">{habit.name}</span>
-                      {habit.archived && (
-                        <span className="archived-badge">{t("habits.archived")}</span>
-                      )}
-                      {!habit.archived && habit.paused_until && habit.paused_until > today && (
-                        <span className="paused-badge">⏸ {t("habits.paused")}</span>
-                      )}
-                    </div>
-                    {habit.description && (
-                      <p className="habit-desc">{habit.description}</p>
-                    )}
-                    <div className="habit-card-meta">
-                      {category && (
-                        <span
-                          className="category-badge"
-                          style={{
-                            background: category.color + "22",
-                            color: category.color,
-                          }}
-                        >
-                          {category.icon} {category.name}
-                        </span>
-                      )}
-                      <span className="freq-badge">
-                        {t(`habits.${habit.frequency}`)}
-                      </span>
-                      {habit.type !== "normal" && (
-                        <span className={`type-pill type-pill-${habit.type}`}>
-                          {habit.type === "bad" ? `🚫 ${t("habits.typeBad")}` : `💚 ${t("habits.typeGood")}`}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="habit-card-stats">
-                    <StreakBadge streak={stats.streak} />
-                    <span className="completion-rate">{stats.completionRate}%</span>
-                  </div>
-                  <button
-                    className="icon-btn menu-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setMenu(
-                        menu?.habitId === habit.id
-                          ? null
-                          : { habitId: habit.id, x: rect.right, y: rect.bottom }
-                      );
-                    }}
-                  >
-                    <MoreVertical size={16} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {habits.map(renderHabitCard)}
         </div>
       )}
 

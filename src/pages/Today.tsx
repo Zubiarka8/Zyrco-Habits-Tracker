@@ -31,6 +31,7 @@ import { Modal } from "../components/Modal";
 import { HabitForm } from "../components/HabitForm";
 import { HabitCalendar, type CalendarView } from "../components/HabitCalendar";
 import { isHabitDueOnDay } from "../utils/schedule";
+import { SkeletonHabitRow } from "../components/Skeleton";
 import type { Habit, Log, Category } from "../types";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
@@ -1009,7 +1010,13 @@ export function Today() {
 
   // ── Loading guard ──────────────────────────────────────────
   if (habitsLoading) {
-    return <div className="page-loading">{t("common.loading")}</div>;
+    return (
+      <div className="page">
+        {[1, 2, 3, 4].map((i) => (
+          <SkeletonHabitRow key={i} />
+        ))}
+      </div>
+    );
   }
 
   const isToday       = selectedDate === todayStr;

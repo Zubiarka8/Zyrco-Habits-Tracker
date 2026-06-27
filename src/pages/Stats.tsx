@@ -24,7 +24,7 @@ import { StreakBadge } from "../components/StreakBadge";
 import { AnnualHeatmap } from "../components/AnnualHeatmap";
 import { useNavigate } from "react-router-dom";
 
-type Period = 7 | 30 | 90;
+type Period = 7 | 30 | 90 | 365;
 
 function DeltaBadge({ delta }: { delta: number }) {
   if (Math.abs(delta) < 2) return null;
@@ -76,9 +76,10 @@ export function Stats() {
   }));
 
   const periodOptions: { value: Period; label: string }[] = [
-    { value: 7, label: t("stats.last7days") },
-    { value: 30, label: t("stats.last30days") },
-    { value: 90, label: t("stats.last90days") },
+    { value: 7,   label: t("stats.last7days") },
+    { value: 30,  label: t("stats.last30days") },
+    { value: 90,  label: t("stats.last90days") },
+    { value: 365, label: t("stats.allTime") },
   ];
 
   // ── Monthly summary ─────────────────────────────────────
@@ -126,7 +127,7 @@ export function Stats() {
         }, 0) / habits.length
       )
     : 0;
-  const rateDelta = avgCompletionRate - prevAvgCompletionRate;
+  const rateDelta = period < 365 ? avgCompletionRate - prevAvgCompletionRate : 0;
 
   // ── Category breakdown ─────────────────────────────────
   const categoryStats = categories
