@@ -253,6 +253,8 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   const [showCatForm, setShowCatForm] = useState(false);
 
   const [habitType, setHabitType] = useState<Habit["type"]>(initial?.type ?? "normal");
+  type FrequencyUI = Habit["frequency"] | "today";
+  const [uiFreq, setUiFreq] = useState<FrequencyUI>(initial?.frequency ?? "daily");
   const [frequency, setFrequency] = useState<Habit["frequency"]>(
     initial?.frequency ?? "daily"
   );
@@ -315,12 +317,24 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
     setScheduleError(null);
   };
 
-  const handleFrequencyChange = (f: Habit["frequency"]) => {
-    setFrequency(f);
+  const handleFrequencyChange = (f: FrequencyUI) => {
+    setUiFreq(f);
     setScheduleError(null);
-    if (f === "weekly") {
-      // Weekly = single-day selection; keep first selected or default to Monday
-      setTargetDays((prev) => (prev.length > 0 ? [prev[0]] : [1]));
+    if (f === "today") {
+      const todayStr = format(new Date(), "yyyy-MM-dd");
+      setFrequency("daily");
+      setStartDate(todayStr);
+      setEndDate(todayStr);
+    } else {
+      setFrequency(f);
+      // Clear auto-set dates if switching away from "today"
+      if (uiFreq === "today") {
+        setStartDate("");
+        setEndDate("");
+      }
+      if (f === "weekly") {
+        setTargetDays((prev) => (prev.length > 0 ? [prev[0]] : [1]));
+      }
     }
   };
 
@@ -522,9 +536,10 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
           <label className="field-label">{t("habits.frequency")}</label>
           <select
             className="select"
-            value={frequency}
-            onChange={(e) => handleFrequencyChange(e.target.value as Habit["frequency"])}
+            value={uiFreq}
+            onChange={(e) => handleFrequencyChange(e.target.value as FrequencyUI)}
           >
+            <option value="today">{t("habits.today")}</option>
             <option value="daily">{t("habits.daily")}</option>
             <option value="weekly">{t("habits.weekly")}</option>
             <option value="custom">{t("habits.custom")}</option>

@@ -58,6 +58,7 @@
     "category": "Category",
     "noCategory": "No category",
     "frequency": "Frequency",
+    "today": "Today only",
     "daily": "Daily",
     "weekly": "Weekly",
     "custom": "Custom",
