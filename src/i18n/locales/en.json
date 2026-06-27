@@ -277,7 +277,32 @@
     "createCustom": "Create a custom habit instead",
     "celebrateTitle": "You're all set! 🎉",
     "celebrateBody": "has been added to your habits. Check it off every day to build your streak.",
+    "firstCheckIn": "✓ Mark my first check-in!",
     "goTo": "Go to Today"
+  },
+  "habitDetail": {
+    "view": "View detail",
+    "back": "Back to Habits",
+    "edit": "Edit",
+    "currentStreak": "Current streak",
+    "bestStreak": "Best streak",
+    "totalCompleted": "Total completed",
+    "byDayOfWeek": "By day of week",
+    "recentNotes": "Recent notes",
+    "noNotes": "No notes yet."
+  },
+  "digest": {
+    "title": "📊 Your week",
+    "completionRate": "completion rate",
+    "vsLastWeek": "vs. last week",
+    "bestHabit": "🏆 Best habit",
+    "needsAttention": "⚠️ Needs attention",
+    "msgExcellent": "Outstanding week! Keep up the momentum 💪",
+    "msgGood": "Solid week! You're building real consistency.",
+    "msgOk": "Room to grow. Small steps still count — keep going.",
+    "msgPoor": "Tough week. Tomorrow is a fresh start. You've got this.",
+    "viewStats": "View statistics",
+    "close": "Close"
   },
   "auth": {
     "tagline": "Build habits that stick",

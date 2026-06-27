@@ -14,9 +14,11 @@ interface StreakBadgeProps {
   streak: number;
   /** True when today, habit not yet completed — warns the streak will break. */
   atRisk?: boolean;
+  /** True when streak is alive via grace day (recent miss but not yet broken). */
+  graceDayActive?: boolean;
 }
 
-export function StreakBadge({ streak, atRisk }: StreakBadgeProps) {
+export function StreakBadge({ streak, atRisk, graceDayActive }: StreakBadgeProps) {
   if (streak === 0) return null;
 
   const milestone = getStreakMilestone(streak);
@@ -28,10 +30,17 @@ export function StreakBadge({ streak, atRisk }: StreakBadgeProps) {
     ? "streak-orange"
     : "streak-default";
 
+  const title = atRisk
+    ? "Streak at risk!"
+    : graceDayActive
+    ? "Streak active via grace day. Complete today to keep it!"
+    : undefined;
+
   return (
-    <span className={`streak-badge ${intensity} ${milestone ? "streak-milestone" : ""}`} title={atRisk ? "Streak at risk!" : undefined}>
+    <span className={`streak-badge ${intensity} ${milestone ? "streak-milestone" : ""}`} title={title}>
       <Flame size={12} />
       {streak}
+      {graceDayActive && !atRisk && <span className="grace-day-icon">⚡</span>}
       {milestone === streak && (
         <span className="milestone-crown" title={`${milestone}-day milestone!`}>🏆</span>
       )}

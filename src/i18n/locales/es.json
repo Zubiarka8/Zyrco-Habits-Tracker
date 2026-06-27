@@ -277,7 +277,32 @@
     "createCustom": "Crear un hábito personalizado",
     "celebrateTitle": "¡Todo listo! 🎉",
     "celebrateBody": "ha sido añadido a tus hábitos. Márcalo cada día para construir tu racha.",
+    "firstCheckIn": "✓ ¡Marcar mi primer registro!",
     "goTo": "Ir a Hoy"
+  },
+  "habitDetail": {
+    "view": "Ver detalle",
+    "back": "Volver a Hábitos",
+    "edit": "Editar",
+    "currentStreak": "Racha actual",
+    "bestStreak": "Mejor racha",
+    "totalCompleted": "Total completados",
+    "byDayOfWeek": "Por día de la semana",
+    "recentNotes": "Notas recientes",
+    "noNotes": "Aún no hay notas."
+  },
+  "digest": {
+    "title": "📊 Tu semana",
+    "completionRate": "de completado",
+    "vsLastWeek": "vs. semana anterior",
+    "bestHabit": "🏆 Mejor hábito",
+    "needsAttention": "⚠️ Necesita atención",
+    "msgExcellent": "¡Semana excepcional! Sigue así 💪",
+    "msgGood": "¡Buena semana! Estás construyendo constancia real.",
+    "msgOk": "Hay margen de mejora. Los pequeños pasos cuentan — sigue adelante.",
+    "msgPoor": "Semana difícil. Mañana es un nuevo comienzo. ¡Tú puedes!",
+    "viewStats": "Ver estadísticas",
+    "close": "Cerrar"
   },
   "auth": {
     "tagline": "Construye hábitos que perduran",

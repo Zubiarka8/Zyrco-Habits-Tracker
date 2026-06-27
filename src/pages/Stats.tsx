@@ -14,8 +14,9 @@ import {
   startOfMonth,
   eachDayOfInterval,
   getDaysInMonth,
+  subDays,
 } from "date-fns";
-import { Flame, CheckCircle2, Award, BarChart2, TrendingUp, Percent } from "lucide-react";
+import { Flame, CheckCircle2, Award, TrendingUp, Percent } from "lucide-react";
 import { useStats } from "../hooks/useStats";
 import { useCategories } from "../hooks/useCategories";
 import { isHabitDueOnDay } from "../utils/schedule";
@@ -24,6 +25,19 @@ import { AnnualHeatmap } from "../components/AnnualHeatmap";
 import { useNavigate } from "react-router-dom";
 
 type Period = 7 | 30 | 90;
+
+function DeltaBadge({ delta }: { delta: number }) {
+  if (Math.abs(delta) < 2) return null;
+  const up = delta > 0;
+  return (
+    <span
+      className={`stat-delta ${up ? "stat-delta--up" : "stat-delta--down"}`}
+      title="vs. previous period"
+    >
+      {up ? "↑" : "↓"} {Math.abs(delta)}%
+    </span>
+  );
+}
 
 export function Stats() {
   const { t } = useTranslation();
@@ -42,7 +56,7 @@ export function Stats() {
           <h1 className="page-title">{t("stats.title")}</h1>
         </div>
         <div className="empty-state">
-          <BarChart2 size={48} className="empty-state-icon" />
+          <span className="empty-state-emoji">📊</span>
           <p>{t("stats.noHabits")}</p>
           <p className="text-muted">{t("stats.noHabitsDesc")}</p>
           <button className="btn btn-primary" onClick={() => navigate("/habits")}>
@@ -95,6 +109,24 @@ export function Stats() {
         habits.length
       )
     : 0;
+
+  // ── Delta vs. previous period ────────────────────────────
+  const prevEnd = subDays(today, period);
+  const prevStart = subDays(prevEnd, period - 1);
+  const prevRange = eachDayOfInterval({ start: prevStart, end: prevEnd }).map((d) =>
+    format(d, "yyyy-MM-dd")
+  );
+  const prevAvgCompletionRate = habits.length > 0
+    ? Math.round(
+        habits.reduce((sum, h) => {
+          const completed = prevRange.filter((date) =>
+            logs.some((l) => l.habit_id === h.id && l.date === date && l.completed)
+          ).length;
+          return sum + Math.round((completed / prevRange.length) * 100);
+        }, 0) / habits.length
+      )
+    : 0;
+  const rateDelta = avgCompletionRate - prevAvgCompletionRate;
 
   // ── Category breakdown ─────────────────────────────────
   const categoryStats = categories
@@ -159,6 +191,9 @@ export function Stats() {
           </div>
         </div>
       </div>
+
+      {/* Annual heatmap — moved to top for visibility */}
+      {logs.length > 0 && <AnnualHeatmap habits={habits} logs={logs} />}
 
       {/* No data in selected period — gentle prompt, not an error */}
       {!hasDataInPeriod && logs.length === 0 && (
@@ -225,13 +260,11 @@ export function Stats() {
             <p className="stat-value">
               {avgCompletionRate}
               <span className="stat-unit">%</span>
+              <DeltaBadge delta={rateDelta} />
             </p>
           </div>
         </div>
       </div>
-
-      {/* Annual heatmap (P-02) */}
-      {logs.length > 0 && <AnnualHeatmap habits={habits} logs={logs} />}
 
       {/* Activity chart — only render when there's data to show */}
       {hasDataInPeriod && (
@@ -301,7 +334,7 @@ export function Stats() {
                     <span className="per-habit-rate">{stats.completionRate}%</span>
                   </div>
                 </div>
-                <StreakBadge streak={stats.streak} />
+                <StreakBadge streak={stats.streak} graceDayActive={stats.graceDayActive} />
               </div>
             );
           })}

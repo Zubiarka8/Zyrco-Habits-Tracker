@@ -27,13 +27,13 @@ function getGraceDays(): number {
   return Math.max(0, Math.min(2, parseInt(localStorage.getItem("zyrco-grace-days") ?? "1", 10)));
 }
 
-function calculateStreak(logs: Log[], habitId: string): { current: number; best: number } {
+function calculateStreak(logs: Log[], habitId: string): { current: number; best: number; graceDayActive: boolean } {
   const graceDays = getGraceDays();
   const completedDates = new Set(
     logs.filter((l) => l.habit_id === habitId && l.completed).map((l) => l.date)
   );
 
-  if (completedDates.size === 0) return { current: 0, best: 0 };
+  if (completedDates.size === 0) return { current: 0, best: 0, graceDayActive: false };
 
   // ── current streak: walk backward from today, allow up to graceDays consecutive misses ──
   let current = 0;
@@ -53,6 +53,9 @@ function calculateStreak(logs: Log[], habitId: string): { current: number; best:
     }
   }
 
+  // graceDayActive: streak is alive but today's habit hasn't been completed
+  const graceDayActive = current > 0 && missRun > 0;
+
   // ── best streak: longest unbroken run (no grace on best, keeps the number honest) ──
   const sortedAsc = [...completedDates].sort();
   let best = 0;
@@ -69,7 +72,7 @@ function calculateStreak(logs: Log[], habitId: string): { current: number; best:
     prev = date;
   }
 
-  return { current, best };
+  return { current, best, graceDayActive };
 }
 
 export function useStats() {
@@ -126,7 +129,7 @@ export function useStats() {
           ? Math.round((last30Days.filter((d) => d.completed).length / range.length) * 100)
           : 0;
 
-      const { current: streak, best: bestStreak } = calculateStreak(logs, habitId);
+      const { current: streak, best: bestStreak, graceDayActive } = calculateStreak(logs, habitId);
       const strengthScore = calculateStrengthScore(logs, habitId);
 
       return {
@@ -137,6 +140,7 @@ export function useStats() {
         completionRate,
         strengthScore,
         last30Days,
+        graceDayActive,
       };
     },
     [logs]

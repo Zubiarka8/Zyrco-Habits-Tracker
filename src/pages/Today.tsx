@@ -153,6 +153,7 @@ function HabitList({
   onTimerStart,
   onTimerStop,
   compact,
+  highlightHabitId,
 }: {
   habits: Habit[];
   logs: Log[];
@@ -166,9 +167,25 @@ function HabitList({
   onTimerStart?: (habitId: string) => void;
   onTimerStop?: (habitId: string, elapsedMinutes: number) => void;
   compact?: boolean;
+  highlightHabitId?: string | null;
 }) {
   const { t } = useTranslation();
   const [expandedNumeric, setExpandedNumeric] = useState<string | null>(null);
+  const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
+
+  const handleToggle = useCallback((habitId: string, completed: boolean, value?: number | null) => {
+    if (!completed) {
+      setJustDoneIds((prev) => new Set([...prev, habitId]));
+      setTimeout(() => {
+        setJustDoneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(habitId);
+          return next;
+        });
+      }, 400);
+    }
+    toggle(habitId, completed, value);
+  }, [toggle]);
 
   const getLog = useCallback(
     (habitId: string) => logs.find((l) => l.habit_id === habitId),
@@ -190,7 +207,13 @@ function HabitList({
         return (
           <div
             key={habit.id}
-            className={`habit-row ${completed ? "habit-row-done" : ""} ${compact ? "habit-row--compact" : ""}`}
+            className={[
+              "habit-row",
+              completed ? "habit-row-done" : "",
+              compact ? "habit-row--compact" : "",
+              justDoneIds.has(habit.id) ? "habit-row--just-done" : "",
+              highlightHabitId === habit.id ? "habit-row--highlight" : "",
+            ].filter(Boolean).join(" ")}
             style={{ "--habit-color": habit.color } as React.CSSProperties}
           >
             <div className="habit-color-bar" />
@@ -220,7 +243,7 @@ function HabitList({
                   if (isNumeric && !completed) {
                     setExpandedNumeric(habit.id === expandedNumeric ? null : habit.id);
                   } else {
-                    toggle(habit.id, completed);
+                    handleToggle(habit.id, completed);
                     setExpandedNumeric(null);
                   }
                 }}
@@ -279,7 +302,7 @@ function HabitList({
                   habit={habit}
                   currentValue={log?.value ?? null}
                   onConfirm={(value) => {
-                    toggle(habit.id, true, value);
+                    handleToggle(habit.id, true, value);
                     setExpandedNumeric(null);
                   }}
                   onClose={() => setExpandedNumeric(null)}
@@ -501,6 +524,60 @@ function SortControl({
   );
 }
 
+// ── FilterBar ─────────────────────────────────────────────
+
+/** Type + category chips + sort selector — shared between monthly and daily views. */
+function FilterBar({
+  dueHabitsLength,
+  hasGood,
+  hasBad,
+  hasNormal,
+  typeFilter,
+  dueCategories,
+  categoryFilter,
+  habitSort,
+  onTypeFilter,
+  onCategoryFilter,
+  onHabitSort,
+}: {
+  dueHabitsLength: number;
+  hasGood: boolean;
+  hasBad: boolean;
+  hasNormal: boolean;
+  typeFilter: HabitTypeFilter;
+  dueCategories: Category[];
+  categoryFilter: string | null;
+  habitSort: HabitSort;
+  onTypeFilter: (f: HabitTypeFilter) => void;
+  onCategoryFilter: (id: string | null) => void;
+  onHabitSort: (v: HabitSort) => void;
+}) {
+  if (dueHabitsLength === 0) return null;
+  return (
+    <div className="filter-bar">
+      {(hasGood || hasBad || hasNormal) && (
+        <TypeFilterChips
+          active={typeFilter}
+          hasGood={hasGood}
+          hasBad={hasBad}
+          hasNormal={hasNormal}
+          onChange={onTypeFilter}
+        />
+      )}
+      {dueCategories.length >= 2 && (
+        <CategoryFilterChips
+          active={categoryFilter}
+          categories={dueCategories}
+          onChange={onCategoryFilter}
+        />
+      )}
+      {dueHabitsLength > 1 && (
+        <SortControl value={habitSort} onChange={onHabitSort} />
+      )}
+    </div>
+  );
+}
+
 // ── DoneSection ───────────────────────────────────────────
 
 /** Collapsible section showing habits already completed for the day. */
@@ -702,6 +779,19 @@ export function Today() {
 
   // ── R-06: at-risk banner ──────────────────────────────────
   const [atRiskDismissed, setAtRiskDismissed] = useState(false);
+
+  // ── Onboarding highlight: shows a pulse on the habit just created ──
+  const [highlightHabitId, setHighlightHabitId] = useState<string | null>(() => {
+    const id = localStorage.getItem("zyrco-highlight-habit");
+    if (id) localStorage.removeItem("zyrco-highlight-habit");
+    return id;
+  });
+  // Clear highlight after 2.5s so it doesn't persist across navigations
+  useEffect(() => {
+    if (!highlightHabitId) return;
+    const t = setTimeout(() => setHighlightHabitId(null), 2500);
+    return () => clearTimeout(t);
+  }, [highlightHabitId]);
 
   // ── Active timers (P-04) ──────────────────────────────────
   const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date }>>(new Map());
@@ -964,10 +1054,19 @@ export function Today() {
     onTimerStart: handleTimerStart,
     onTimerStop: handleTimerStop,
     compact: compactView,
+    highlightHabitId,
   };
 
   return (
     <>
+      {/* ── R-06: at-risk banner — visible in all views ─────── */}
+      {hour >= 20 && !atRiskDismissed && atRiskHabits.length > 0 && (
+        <div className="at-risk-banner at-risk-banner--global">
+          <span>⚠️ {t("today.atRiskMsg", { count: atRiskHabits.length })}</span>
+          <button className="icon-btn" onClick={() => setAtRiskDismissed(true)}>✕</button>
+        </div>
+      )}
+
       {/* ── Monthly layout ──────────────────────────────────── */}
       {calView === "monthly" && (
         <div className="page today-page--monthly">
@@ -1028,29 +1127,19 @@ export function Today() {
                   </div>
                 )}
 
-                {dueHabits.length > 0 && (
-                  <div className="filter-bar">
-                    {(hasGood || hasBad || hasNormal) && (
-                      <TypeFilterChips
-                        active={typeFilter}
-                        hasGood={hasGood}
-                        hasBad={hasBad}
-                        hasNormal={hasNormal}
-                        onChange={setTypeFilter}
-                      />
-                    )}
-                    {dueCategories.length >= 2 && (
-                      <CategoryFilterChips
-                        active={categoryFilter}
-                        categories={dueCategories}
-                        onChange={setCategoryFilter}
-                      />
-                    )}
-                    {dueHabits.length > 1 && (
-                      <SortControl value={habitSort} onChange={setHabitSort} />
-                    )}
-                  </div>
-                )}
+                <FilterBar
+                  dueHabitsLength={dueHabits.length}
+                  hasGood={hasGood}
+                  hasBad={hasBad}
+                  hasNormal={hasNormal}
+                  typeFilter={typeFilter}
+                  dueCategories={dueCategories}
+                  categoryFilter={categoryFilter}
+                  habitSort={habitSort}
+                  onTypeFilter={setTypeFilter}
+                  onCategoryFilter={setCategoryFilter}
+                  onHabitSort={setHabitSort}
+                />
 
                 <PerfectDayBanner done={done} total={total} isToday={isToday} />
 
@@ -1143,14 +1232,6 @@ export function Today() {
             onGoToToday={handleGoToToday}
           />
 
-          {/* R-06: at-risk banner */}
-          {hour >= 20 && !atRiskDismissed && atRiskHabits.length > 0 && (
-            <div className="at-risk-banner">
-              <span>⚠️ {t("today.atRiskMsg", { count: atRiskHabits.length })}</span>
-              <button className="icon-btn" onClick={() => setAtRiskDismissed(true)}>✕</button>
-            </div>
-          )}
-
           <div className="cal-day-header">
             {total > 0 && (
               <div className="progress-pill">
@@ -1195,29 +1276,19 @@ export function Today() {
             </div>
           )}
 
-          {dueHabits.length > 0 && (
-            <div className="filter-bar">
-              {(hasGood || hasBad || hasNormal) && (
-                <TypeFilterChips
-                  active={typeFilter}
-                  hasGood={hasGood}
-                  hasBad={hasBad}
-                  hasNormal={hasNormal}
-                  onChange={setTypeFilter}
-                />
-              )}
-              {dueCategories.length >= 2 && (
-                <CategoryFilterChips
-                  active={categoryFilter}
-                  categories={dueCategories}
-                  onChange={setCategoryFilter}
-                />
-              )}
-              {dueHabits.length > 1 && (
-                <SortControl value={habitSort} onChange={setHabitSort} />
-              )}
-            </div>
-          )}
+          <FilterBar
+            dueHabitsLength={dueHabits.length}
+            hasGood={hasGood}
+            hasBad={hasBad}
+            hasNormal={hasNormal}
+            typeFilter={typeFilter}
+            dueCategories={dueCategories}
+            categoryFilter={categoryFilter}
+            habitSort={habitSort}
+            onTypeFilter={setTypeFilter}
+            onCategoryFilter={setCategoryFilter}
+            onHabitSort={setHabitSort}
+          />
 
           {pendingHabits.length > 0 && (() => {
             const bySessions = SESSION_ORDER.map((s) => ({
@@ -1324,6 +1395,7 @@ export function Today() {
         title={t("habits.delete")}
         onClose={() => setDeleteTarget(null)}
         size="sm"
+        danger
       >
         <p className="confirm-text">{t("habits.deleteConfirm")}</p>
         <p className="confirm-name">{deleteTarget?.name}</p>

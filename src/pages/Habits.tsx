@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
@@ -15,6 +16,7 @@ type MenuState = { habitId: string; x: number; y: number } | null;
 
 export function Habits() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [includeArchived, setIncludeArchived] = useState(false);
   const { habits, loading, create, update, archive, remove } = useHabits(includeArchived);
   const { categories } = useCategories();
@@ -105,6 +107,7 @@ export function Habits() {
 
       {habits.length === 0 ? (
         <div className="empty-state">
+          <span className="empty-state-emoji">✨</span>
           <p>{t("habits.noHabits")}</p>
           <p className="text-muted">{t("habits.createFirst")}</p>
           <button className="btn btn-primary" onClick={openCreate}>
@@ -197,6 +200,10 @@ export function Habits() {
             className="dropdown-menu dropdown-menu--fixed"
             style={{ top: menu.y, left: menu.x }}
           >
+            <button className="dropdown-item" onClick={() => { navigate(`/habits/${menuHabit.id}`); setMenu(null); }}>
+              <TrendingUp size={14} />
+              {t("habitDetail.view")}
+            </button>
             <button className="dropdown-item" onClick={() => openEdit(menuHabit)}>
               <Edit2 size={14} />
               {t("habits.edit")}
@@ -313,6 +320,7 @@ export function Habits() {
         title={t("habits.delete")}
         onClose={() => setDeleteTarget(null)}
         size="sm"
+        danger
       >
         <p className="confirm-text">{t("habits.deleteConfirm")}</p>
         <p className="confirm-name">{deleteTarget?.name}</p>

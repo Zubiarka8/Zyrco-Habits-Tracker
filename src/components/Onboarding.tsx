@@ -5,7 +5,7 @@ import { HABIT_TEMPLATES } from "../data/habitTemplates";
 import type { HabitTemplate } from "../data/habitTemplates";
 
 interface OnboardingProps {
-  onComplete: (template: HabitTemplate | null) => void;
+  onComplete: (template: HabitTemplate | null, doCheckIn?: boolean) => void;
 }
 
 const STARTER_TEMPLATES = HABIT_TEMPLATES.filter((t) =>
@@ -29,7 +29,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   const handleSkip = () => onComplete(null);
 
-  const handleFinish = () => onComplete(chosen);
+  const handleFinish = (doCheckIn = false) => onComplete(chosen, doCheckIn);
 
   if (step === "welcome") {
     return (
@@ -92,7 +92,10 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           {chosen ? `${chosen.icon} ${tName(chosen)}` : ""}
           {" "}{t("onboarding.celebrateBody")}
         </p>
-        <button className="btn btn-primary onboarding-cta" onClick={handleFinish}>
+        <button className="btn btn-primary onboarding-cta" onClick={() => handleFinish(true)}>
+          ✓ {t("onboarding.firstCheckIn")}
+        </button>
+        <button className="btn btn-ghost onboarding-skip" onClick={() => handleFinish(false)}>
           {t("onboarding.goTo")}
         </button>
       </div>

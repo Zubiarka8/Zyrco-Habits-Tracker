@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { X, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface ModalProps {
@@ -8,9 +8,11 @@ interface ModalProps {
   onClose: () => void;
   children: ReactNode;
   size?: "sm" | "md" | "lg";
+  /** Renders a red-tinted header with a warning icon — use for destructive actions */
+  danger?: boolean;
 }
 
-export function Modal({ open, title, onClose, children, size = "md" }: ModalProps) {
+export function Modal({ open, title, onClose, children, size = "md", danger = false }: ModalProps) {
   const { t } = useTranslation();
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -32,7 +34,8 @@ export function Modal({ open, title, onClose, children, size = "md" }: ModalProp
       onClick={(e) => e.target === overlayRef.current && onClose()}
     >
       <div className={`modal modal-${size}`}>
-        <div className="modal-header">
+        <div className={`modal-header${danger ? " modal-header--danger" : ""}`}>
+          {danger && <AlertTriangle size={16} className="modal-danger-icon" />}
           <h2 className="modal-title">{title}</h2>
           <button
             className="icon-btn"

@@ -7,6 +7,8 @@ import { isHabitDueOnDay } from "../utils/schedule";
 interface AnnualHeatmapProps {
   habits: Habit[];
   logs: Log[];
+  /** When provided, shows data only for this single habit */
+  habitId?: string;
 }
 
 type DayCell = {
@@ -25,13 +27,16 @@ function getRateColor(rate: number): string {
   return "#4338ca";
 }
 
-export function AnnualHeatmap({ habits, logs }: AnnualHeatmapProps) {
+export function AnnualHeatmap({ habits, logs, habitId }: AnnualHeatmapProps) {
   const { t } = useTranslation();
 
   const cells = useMemo<DayCell[]>(() => {
+    const targetHabits = habitId ? habits.filter((h) => h.id === habitId) : habits;
+
     const logIndex = new Map<string, Set<string>>();
     for (const l of logs) {
       if (!l.completed) continue;
+      if (habitId && l.habit_id !== habitId) continue;
       if (!logIndex.has(l.date)) logIndex.set(l.date, new Set());
       logIndex.get(l.date)!.add(l.habit_id);
     }
@@ -41,17 +46,17 @@ export function AnnualHeatmap({ habits, logs }: AnnualHeatmapProps) {
     for (let i = 364; i >= 0; i--) {
       const dayObj = subDays(today, i);
       const date = format(dayObj, "yyyy-MM-dd");
-      const due = habits.filter((h) => isHabitDueOnDay(h, dayObj)).length;
+      const due = targetHabits.filter((h) => isHabitDueOnDay(h, dayObj)).length;
       const completedSet = logIndex.get(date);
       const completed =
         due > 0
-          ? habits.filter((h) => isHabitDueOnDay(h, dayObj) && completedSet?.has(h.id)).length
+          ? targetHabits.filter((h) => isHabitDueOnDay(h, dayObj) && completedSet?.has(h.id)).length
           : 0;
       const rate = due > 0 ? completed / due : -1;
       result.push({ date, rate, completed, due });
     }
     return result;
-  }, [habits, logs]);
+  }, [habits, logs, habitId]);
 
   // Group cells into week columns (Sunday = col start)
   const weeks = useMemo(() => {

@@ -133,4 +133,6 @@ export interface HabitStats {
   /** P-01: 0–100 EMA-based strength score — decays on misses, slow to reset */
   strengthScore: number;
   last30Days: { date: string; completed: boolean }[];
+  /** True when the streak is being held by a grace day (today or yesterday not completed) */
+  graceDayActive: boolean;
 }

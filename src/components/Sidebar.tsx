@@ -1,16 +1,14 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CalendarCheck, ListChecks, BarChart2, Settings, CheckSquare } from "lucide-react";
-
-const links = [
-  { to: "/", icon: CalendarCheck, key: "nav.today" },
-  { to: "/habits", icon: ListChecks, key: "nav.habits" },
-  { to: "/todos", icon: CheckSquare, key: "nav.todos" },
-  { to: "/stats", icon: BarChart2, key: "nav.stats" },
-];
+import { CalendarCheck, ListChecks, BarChart2, Settings } from "lucide-react";
+import { useTodayProgress } from "../hooks/useTodayProgress";
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const { done, total } = useTodayProgress();
+
+  const progressBadge = total === 0 ? null : done === total ? "✓" : `${done}/${total}`;
+  const badgeColor = done === total ? "var(--color-success)" : "var(--color-warning)";
 
   return (
     <aside className="sidebar">
@@ -20,27 +18,52 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {links.map(({ to, icon: Icon, key }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              `nav-link ${isActive ? "nav-link-active" : ""}`
-            }
-          >
-            <Icon size={18} />
-            <span>{t(key)}</span>
-          </NavLink>
-        ))}
+        <NavLink
+          to="/"
+          end
+          title={t("nav.today")}
+          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+        >
+          <span className="nav-icon-wrap">
+            <CalendarCheck size={18} />
+            {progressBadge && (
+              <span className="nav-dot" style={{ background: badgeColor }} aria-hidden="true" />
+            )}
+          </span>
+          <span className="nav-label-wrap">
+            {t("nav.today")}
+            {progressBadge && (
+              <span className="nav-progress" style={{ color: badgeColor }}>
+                {progressBadge}
+              </span>
+            )}
+          </span>
+        </NavLink>
+
+        <NavLink
+          to="/habits"
+          title={t("nav.habits")}
+          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+        >
+          <ListChecks size={18} />
+          <span>{t("nav.habits")}</span>
+        </NavLink>
+
+        <NavLink
+          to="/stats"
+          title={t("nav.stats")}
+          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+        >
+          <BarChart2 size={18} />
+          <span>{t("nav.stats")}</span>
+        </NavLink>
       </nav>
 
       <div className="sidebar-bottom">
         <NavLink
           to="/settings"
-          className={({ isActive }) =>
-            `nav-link ${isActive ? "nav-link-active" : ""}`
-          }
+          title={t("nav.settings")}
+          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
         >
           <Settings size={18} />
           <span>{t("nav.settings")}</span>
