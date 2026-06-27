@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp, Search } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
@@ -31,6 +31,7 @@ export function Habits() {
   const [pauseHabit, setPauseHabit] = useState<Habit | null>(null);
   const [pendingCreate, setPendingCreate] = useState<Omit<Habit, "id" | "created_at" | "archived"> | null>(null);
   const [groupByCategory, setGroupByCategory] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const today = format(new Date(), "yyyy-MM-dd");
   const activeCount = habits.filter((h) => !h.archived && !(h.paused_until && h.paused_until > today)).length;
@@ -87,20 +88,26 @@ export function Habits() {
     setDeleteTarget(null);
   };
 
+  const filteredHabits = useMemo(() => {
+    if (!searchQuery.trim()) return habits;
+    const q = searchQuery.toLowerCase();
+    return habits.filter((h) => h.name.toLowerCase().includes(q) || h.description?.toLowerCase().includes(q));
+  }, [habits, searchQuery]);
+
   // Group habits by category when groupByCategory is on and categories exist
   const grouped = useMemo(() => {
     if (!groupByCategory || categories.length === 0) return null;
     const groups: { category: typeof categories[0] | null; habits: Habit[] }[] = [];
     categories.forEach((cat) => {
-      const catHabits = habits.filter((h) => h.category_id === cat.id);
+      const catHabits = filteredHabits.filter((h) => h.category_id === cat.id);
       if (catHabits.length > 0) groups.push({ category: cat, habits: catHabits });
     });
-    const uncategorized = habits.filter((h) => !h.category_id);
+    const uncategorized = filteredHabits.filter((h) => !h.category_id);
     if (uncategorized.length > 0) groups.push({ category: null, habits: uncategorized });
     return groups;
-  }, [habits, categories, groupByCategory]);
+  }, [filteredHabits, categories, groupByCategory]);
 
-  const renderHabitCard = (habit: Habit) => {
+  const renderHabitCard = useCallback((habit: Habit) => {
     const stats = getHabitStats(habit.id);
     const category = categories.find((c) => c.id === habit.category_id);
     return (
@@ -110,7 +117,13 @@ export function Habits() {
         style={{ "--habit-color": habit.color } as React.CSSProperties}
       >
         <div className="habit-card-accent" />
-        <div className="habit-card-body">
+        <div
+          className="habit-card-body habit-card-body--clickable"
+          onClick={() => navigate(`/habits/${habit.id}`)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && navigate(`/habits/${habit.id}`)}
+        >
           <div className="habit-card-icon" style={{ background: habit.color + "22" }}>
             <span style={{ fontSize: 22 }}>{habit.icon}</span>
           </div>
@@ -165,7 +178,7 @@ export function Habits() {
         </div>
       </div>
     );
-  };
+  }, [categories, getHabitStats, groupByCategory, menu, navigate, t, today]);
 
   if (loading) {
     return (
@@ -183,6 +196,16 @@ export function Habits() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">{t("habits.title")}</h1>
+        <div className="habits-search-wrap">
+          <Search size={14} className="habits-search-icon" />
+          <input
+            className="habits-search-input"
+            type="search"
+            placeholder={t("habits.search")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
         <div className="header-actions">
           {categories.length > 0 && (
             <button
@@ -237,7 +260,7 @@ export function Habits() {
         </div>
       ) : (
         <div className="habits-grid">
-          {habits.map(renderHabitCard)}
+          {filteredHabits.map(renderHabitCard)}
         </div>
       )}
 

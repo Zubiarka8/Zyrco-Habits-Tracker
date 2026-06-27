@@ -47,7 +47,8 @@
     "timerStart": "Iniciar temporizador",
     "timerStop": "Parar y registrar tiempo",
     "compactView": "Vista compacta",
-    "atRiskMsg": "¡{{count}} racha(s) en riesgo esta noche — no rompas la cadena!"
+    "atRiskMsg": "¡{{count}} racha(s) en riesgo esta noche — no rompas la cadena!",
+    "undo": "Deshacer"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -130,7 +131,9 @@
     "overLimitDesc": "Rastrear más de 7 hábitos a la vez suele reducir el porcentaje de completado de todos ellos. Considera archivar o pausar alguno antes de añadir otro.",
     "overLimitProceed": "Añadir igualmente",
     "groupByCategory": "Agrupar por categoría",
-    "flatList": "Lista plana"
+    "flatList": "Lista plana",
+    "search": "Buscar hábitos…",
+    "reminderComingSoon": "Próximamente"
   },
   "todos": {
     "title": "Tareas",

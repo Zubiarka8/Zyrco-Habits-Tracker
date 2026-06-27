@@ -625,6 +625,21 @@ a { text-decoration: none; color: inherit; }
 .toast-msg   { flex: 1; }
 .toast-close { margin-left: auto; background: none; border: none; cursor: pointer; opacity: 0.7; color: inherit; padding: 0; display: flex; }
 .toast-close:hover { opacity: 1; }
+.toast-action {
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: inherit;
+  margin-right: 4px;
+}
+.toast-action:hover { background: rgba(255,255,255,0.4); }
+.toast--info .toast-action { background: var(--color-surface-alt); border-color: var(--color-border); color: var(--color-primary); }
+.toast--info .toast-action:hover { background: var(--color-border); }
 
 @media (max-width: 600px) {
   .toast-container { bottom: 72px; right: 12px; left: 12px; }
@@ -3434,6 +3449,57 @@ a { text-decoration: none; color: inherit; }
   color: var(--color-muted);
   padding: 4px 8px;
 }
+
+/* ── Habits search bar ───────────────────────────────────── */
+.habits-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 8px;
+  flex: 1;
+  max-width: 240px;
+}
+.habits-search-icon {
+  position: absolute;
+  left: 9px;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+.habits-search-input {
+  width: 100%;
+  padding: 7px 10px 7px 30px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.habits-search-input:focus { outline: none; border-color: var(--color-primary); }
+.habits-search-input::placeholder { color: var(--color-muted); }
+
+/* ── Clickable habit card body ───────────────────────────── */
+.habit-card-body--clickable { cursor: pointer; }
+.habit-card-body--clickable:hover { background: var(--color-surface-alt); }
+
+/* ── Coming-soon field (reminder placeholder) ────────────── */
+.coming-soon-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.6;
+}
+.coming-soon-badge {
+  font-size: 11px;
+  background: var(--color-surface-alt);
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  padding: 2px 8px;
+  color: var(--color-muted);
+}
+
+/* ── Timer target label ──────────────────────────────────── */
+.timer-target { font-size: 11px; opacity: 0.7; margin-left: 3px; }
+.timer-target-label { font-size: 11px; opacity: 0.7; }
 
 /* ── Sidebar nav badge (P1-01) ───────────────────────────── */
 .nav-icon-wrap {

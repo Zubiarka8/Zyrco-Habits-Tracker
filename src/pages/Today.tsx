@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import confetti from "canvas-confetti";
 import {
   format,
   parseISO,
@@ -88,11 +89,13 @@ function NumericInput({
 function TimerButton({
   completed,
   activeTimer,
+  target,
   onStart,
   onStop,
 }: {
   completed: boolean;
   activeTimer: { startedAt: Date } | null;
+  target?: number | null;
   onStart: () => void;
   onStop: () => void;
 }) {
@@ -122,7 +125,10 @@ function TimerButton({
     return (
       <button className="timer-stop-btn" onClick={onStop} title={t("today.timerStop")}>
         <Square size={14} />
-        <span className="timer-elapsed">{mm}:{ss}</span>
+        <span className="timer-elapsed">
+          {mm}:{ss}
+          {target ? <span className="timer-target"> / {target}m</span> : null}
+        </span>
       </button>
     );
   }
@@ -130,6 +136,7 @@ function TimerButton({
   return (
     <button className="timer-start-btn" onClick={onStart} title={t("today.timerStart")}>
       <Play size={16} />
+      {target ? <span className="timer-target-label">{target}m</span> : null}
     </button>
   );
 }
@@ -149,6 +156,7 @@ function HabitList({
   toggle,
   onNoteClick,
   onHabitMenu,
+  onLongPress,
   isToday,
   activeTimers,
   onTimerStart,
@@ -163,6 +171,7 @@ function HabitList({
   toggle: (habitId: string, completed: boolean, value?: number | null) => void;
   onNoteClick: (habit: Habit) => void;
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
+  onLongPress?: (habit: Habit, pos: { x: number; y: number }) => void;
   isToday?: boolean;
   activeTimers?: Map<string, { startedAt: Date }>;
   onTimerStart?: (habitId: string) => void;
@@ -173,9 +182,19 @@ function HabitList({
   const { t } = useTranslation();
   const [expandedNumeric, setExpandedNumeric] = useState<string | null>(null);
   const [justDoneIds, setJustDoneIds] = useState<Set<string>>(new Set());
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   const handleToggle = useCallback((habitId: string, completed: boolean, value?: number | null) => {
     if (!completed) {
+      // Haptic feedback on completion (mobile/tablet)
+      if ("vibrate" in navigator) navigator.vibrate(50);
       setJustDoneIds((prev) => new Set([...prev, habitId]));
       setTimeout(() => {
         setJustDoneIds((prev) => {
@@ -223,9 +242,11 @@ function HabitList({
               <TimerButton
                 completed={completed}
                 activeTimer={activeTimer}
+                target={habit.completion_target}
                 onStart={() => onTimerStart?.(habit.id)}
                 onStop={() => {
                   if (activeTimer) {
+                    if ("vibrate" in navigator) navigator.vibrate(50);
                     const elapsedMin = Math.max(1, Math.round((Date.now() - activeTimer.startedAt.getTime()) / 60000));
                     onTimerStop?.(habit.id, elapsedMin);
                   } else {
@@ -268,7 +289,21 @@ function HabitList({
               </button>
             )}
 
-            <div className="habit-info">
+            <div
+              className="habit-info"
+              onPointerDown={(e) => {
+                // Skip if pressing on an inner interactive element
+                if ((e.target as HTMLElement).closest("button,input")) return;
+                const { clientX: x, clientY: y } = e;
+                longPressTimerRef.current = setTimeout(() => {
+                  onLongPress?.(habit, { x, y });
+                  longPressTimerRef.current = null;
+                }, 450);
+              }}
+              onPointerUp={clearLongPress}
+              onPointerLeave={clearLongPress}
+              onPointerCancel={clearLongPress}
+            >
               <div className="habit-name-row">
                 <span className="habit-icon">{habit.icon}</span>
                 <span className="habit-name">{habit.name}</span>
@@ -797,12 +832,35 @@ export function Today() {
   // ── Active timers (P-04) ──────────────────────────────────
   const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date }>>(new Map());
 
+  // Restore any in-progress timers from localStorage on mount (survive navigation)
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("zyrco-timers") ?? "{}") as Record<
+        string,
+        { startedAt: string; date: string }
+      >;
+      const restored = new Map<string, { startedAt: Date }>();
+      for (const [id, data] of Object.entries(stored)) {
+        if (data.date === format(new Date(), "yyyy-MM-dd")) {
+          restored.set(id, { startedAt: new Date(data.startedAt) });
+        }
+      }
+      if (restored.size > 0) setActiveTimers(restored);
+    } catch { /* corrupt entry — ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleTimerStart = useCallback((habitId: string) => {
+    const startedAt = new Date();
     setActiveTimers((prev) => {
       const next = new Map(prev);
-      next.set(habitId, { startedAt: new Date() });
+      next.set(habitId, { startedAt });
       return next;
     });
+    try {
+      const stored = JSON.parse(localStorage.getItem("zyrco-timers") ?? "{}") as Record<string, unknown>;
+      stored[habitId] = { startedAt: startedAt.toISOString(), date: format(startedAt, "yyyy-MM-dd") };
+      localStorage.setItem("zyrco-timers", JSON.stringify(stored));
+    } catch { /* storage unavailable */ }
   }, []);
 
   const handleTimerStop = useCallback(async (habitId: string, elapsedMinutes: number) => {
@@ -811,10 +869,33 @@ export function Today() {
       next.delete(habitId);
       return next;
     });
+    try {
+      const stored = JSON.parse(localStorage.getItem("zyrco-timers") ?? "{}") as Record<string, unknown>;
+      delete stored[habitId];
+      localStorage.setItem("zyrco-timers", JSON.stringify(stored));
+    } catch { /* storage unavailable */ }
     const log = logs.find((l) => l.habit_id === habitId);
     await toggle(habitId, false, elapsedMinutes);
     void log;
   }, [logs, toggle]);
+
+  // Wraps toggle with haptic-free undo toast (haptic fires inside HabitList.handleToggle)
+  const toggleWithUndo = useCallback(
+    (habitId: string, completed: boolean, value?: number | null) => {
+      toggle(habitId, completed, value);
+      if (!completed) {
+        const habit = habits.find((h) => h.id === habitId);
+        if (habit) {
+          showToast(
+            `${habit.icon} ${habit.name}`,
+            "success",
+            { label: t("today.undo"), onClick: () => toggle(habitId, true, value) }
+          );
+        }
+      }
+    },
+    [toggle, habits, showToast, t]
+  );
 
   // ── Type / category / sort filters ───────────────────────
   const [typeFilter, setTypeFilter]         = useState<"all" | "good" | "bad" | "normal">("all");
@@ -950,6 +1031,16 @@ export function Today() {
     ? dueHabits.filter((h) => !getLog(h.id)?.completed && getHabitStats(h.id).streak >= 3)
     : [];
 
+  // Fire confetti once per "perfect day" event (done === total for today)
+  const confettiFiredRef = useRef<string>("");
+  useEffect(() => {
+    const key = `${todayStr}-${total}`;
+    if (_isToday && total > 0 && done === total && confettiFiredRef.current !== key) {
+      confettiFiredRef.current = key;
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.65 } });
+    }
+  }, [done, total, _isToday, todayStr]);
+
   const toggleForRange = useCallback(
     async (habitId: string, date: string, currentCompleted: boolean) => {
       try {
@@ -1048,14 +1139,22 @@ export function Today() {
   const pendingHabits = sortedDue.filter((h) => !getLog(h.id)?.completed);
   const doneHabits    = sortedDue.filter((h) =>  getLog(h.id)?.completed);
 
+  // Long-press on habit-info area opens the context menu at pointer position
+  const handleLongPress = (habit: Habit, pos: { x: number; y: number }) => {
+    setMenu((prev) =>
+      prev?.habitId === habit.id ? null : { habitId: habit.id, x: pos.x, y: pos.y }
+    );
+  };
+
   // ── Shared habit-list props ────────────────────────────────
   const habitListProps = {
     logs,
     categories,
     getHabitStats,
-    toggle,
+    toggle: toggleWithUndo,
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
+    onLongPress: handleLongPress,
     isToday,
     activeTimers,
     onTimerStart: handleTimerStart,

@@ -47,7 +47,8 @@
     "timerStart": "Start timer",
     "timerStop": "Stop & log time",
     "compactView": "Compact view",
-    "atRiskMsg": "{{count}} streak(s) at risk tonight — don't break the chain!"
+    "atRiskMsg": "{{count}} streak(s) at risk tonight — don't break the chain!",
+    "undo": "Undo"
   },
   "habits": {
     "title": "My Habits",
@@ -130,7 +131,9 @@
     "overLimitDesc": "Tracking more than 7 habits at once tends to reduce your completion rate for all of them. Consider archiving or pausing one before adding another.",
     "overLimitProceed": "Add anyway",
     "groupByCategory": "Group by category",
-    "flatList": "Flat list"
+    "flatList": "Flat list",
+    "search": "Search habits…",
+    "reminderComingSoon": "Coming soon"
   },
   "todos": {
     "title": "Tasks",

@@ -271,10 +271,9 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   const [endDate, setEndDate] = useState(initial?.end_date ?? "");
   const [color, setColor] = useState(initial?.color ?? COLORS[0]);
   const [icon, setIcon] = useState(initial?.icon ?? "⭐");
-  const [reminderEnabled, setReminderEnabled] = useState(
-    initial?.reminder_enabled ?? false
-  );
-  const [reminderTime, setReminderTime] = useState(initial?.reminder_time ?? "08:00");
+  // Reminders UI is hidden (coming soon) — preserve existing values on edit
+  const reminderEnabled = initial?.reminder_enabled ?? false;
+  const reminderTime = initial?.reminder_time ?? null;
 
   const [timeEnabled, setTimeEnabled] = useState(!!initial?.time_start);
   const [timeStart, setTimeStart]     = useState(initial?.time_start ?? "08:00");
@@ -848,25 +847,10 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
         )}
       </div>
 
-      {/* Reminder */}
-      <div className="form-field">
-        <label className="field-label field-row">
-          <span>{t("habits.reminder")}</span>
-          <input
-            type="checkbox"
-            checked={reminderEnabled}
-            onChange={(e) => setReminderEnabled(e.target.checked)}
-            className="checkbox"
-          />
-        </label>
-        {reminderEnabled && (
-          <input
-            type="time"
-            className="input"
-            value={reminderTime}
-            onChange={(e) => setReminderTime(e.target.value)}
-          />
-        )}
+      {/* Reminder — OS scheduling not yet wired; shown when backend is ready */}
+      <div className="form-field coming-soon-field">
+        <span className="field-label">{t("habits.reminder")}</span>
+        <span className="coming-soon-badge">{t("habits.reminderComingSoon")}</span>
       </div>
 
       <div className="modal-actions">
