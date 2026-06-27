@@ -5,6 +5,49 @@
 
 ---
 
+## Pasos recomendados para continuar
+Esta seccion resume las acciones concretas ordenadas por impacto/esfuerzo. Pensada para retomar el trabajo al dia siguiente sin tener que releer el documento entero.
+
+
+### Hoy mismo — P0 Criticos (cosas rotas)
+Estas tres cosas generan expectativas falsas en el usuario y deben resolverse antes de cualquier lanzamiento publico:
+
+- [ ] **Notificaciones rotas** — el toggle existe, el permiso se pide, pero nunca llega ninguna notificacion. Solucion rapida (mientras se conecta el scheduling real): ocultar el campo 'Recordatorio' en HabitForm con un placeholder 'Proximamente'. Archivo: `src/components/HabitForm.tsx`
+- [ ] **Timer se pierde al navegar** — `activeTimers` vive en React state efimero. Guardar `startedAt` en `localStorage['zyrco-active-timers']` al iniciar y restaurar al montar `Today.tsx`. Archivo: `src/pages/Today.tsx:798`
+- [ ] **Timer no muestra el objetivo** — `completion_target` existe en DB pero no se renderiza durante la sesion activa. Mostrar `MM:SS / objetivo` en el boton de parar. Archivo: `src/pages/Today.tsx:119` (TimerButton)
+
+
+### Proxima sesion — P1 Quick wins (alto impacto, bajo esfuerzo)
+Cada uno de estos se puede implementar en menos de 30 minutos:
+
+- [ ] **Animacion de confetti al completar todos los habitos** — instalar `canvas-confetti` (~3KB), disparar cuando `done === total && total > 0` en Today.tsx. Es el gap de retencion mas barato de resolver. Archivo: `src/pages/Today.tsx:1154`
+- [ ] **Haptic feedback** — una linea: `if (navigator.vibrate) navigator.vibrate(50)` en `handleToggle` de Today.tsx al completar. Cero dependencias. Archivo: `src/pages/Today.tsx:177`
+- [ ] **Tarjetas de Habits clicables** — el area central de `renderHabitCard` debe ser un `NavLink` a `/habits/:id`. Actualmente el unico camino al detalle es por el menu (···). Archivo: `src/pages/Habits.tsx:103`
+- [ ] **Undo toast tras completar** — usar el `ToastContext` existente para mostrar 'Deshacer' durante 4 segundos tras cualquier toggle. Archivo: `src/pages/Today.tsx:177` (handleToggle)
+- [ ] **Backup automatico semanal** — en Rust, copiar `zyrco.db` a una carpeta configurable cada 7 dias. Si el usuario pierde el dispositivo ahora, pierde todo. Archivo: `src-tauri/src/`
+- [ ] **Busqueda en Habits** — campo `<input type='search'>` en el header de Habits.tsx que filtra `habits` con `useMemo`. Una tarde de trabajo. Archivo: `src/pages/Habits.tsx:182`
+- [ ] **Long-press para abrir menu** — `onPointerDown` con setTimeout 400ms en habit-row activa el dropdown sin necesitar el boton (···) de 16px. Archivo: `src/pages/Today.tsx:196`
+
+
+### Esta semana — P2 Mejoras de producto
+Mas trabajo pero cada una mejora la puntuacion del producto significativamente:
+
+- [ ] **strengthScore visualizado en HabitDetail** — el EMA ya se calcula en `useStats.ts`. Solo falta mostrarlo como numero grande y mini-grafica en `/habits/:id`. Esto iguala a Loop Habit Tracker (5M descargas, gratis) en analiticas.
+- [ ] **Check-in de animo diario** — 5 emojis en Today, tabla `moods (date, value 1-5)`. Correlacionar en Stats. Feature mas pedida en reviews de App Store de todos los competidores.
+- [ ] **Vacation mode global** — boton en Settings: 'Pausar todos hasta:' + date picker. Inserta skips en todos los habitos activos. Muy solicitado; actualmente hay que pausar cada habito manualmente.
+- [ ] **Three-state visual (done/skipped/missed)** — en Calendar y AnnualHeatmap, distinguir visualmente dias saltados (patron rayado/amarillo) de dias fallados (gris). Requiere pasar `rangeSkips` a Calendar page.
+- [ ] **Retrospectiva mensual automatica** — el dia 1 de cada mes, mostrar un modal con la tasa del mes anterior, mejor habito, racha maxima. Nadie en el mercado lo tiene bien — diferenciador.
+- [ ] **Audit de aria-labels** — especialmente `check-btn` (necesita aria-label por habito) y `menu-btn` (debe decir 'Opciones de {habit.name}', no 'Editar'). Bajo esfuerzo.
+
+
+### Posicionamiento de marca (no es codigo)
+El hallazgo de mercado mas importante de este analisis:
+
+> Loop Habit Tracker tiene 5M+ descargas con el pitch 'your data never leaves your phone'. Es gratis, open source y con UI datada. Zyrco es local-first, tiene mejor UI, y es de escritorio. Este posicionamiento no esta comunicado en ningun sitio de la app. El copy en tienda/landing debe ser: **'Sin cuenta. Sin servidores. Tus habitos, en tu dispositivo.'**
+
+
+---
+
 ## Indice
 1. [Problemas de UI (13 issues)](#ui)
 2. [Problemas de UX / interaccion (10 issues)](#ux)
