@@ -120,7 +120,37 @@ export function useDateLogs(date: string) {
     }
   }, [date]);
 
-  return { logs, loading, error, toggle, saveNote, reload: load };
+  /** Explicitly mark a habit as skipped for this date (completed = false log entry). */
+  const skip = useCallback(async (habitId: string) => {
+    try {
+      await upsertLog(habitId, date, false, null, null);
+      notifyLogChanged();
+      setLogs((prev) => {
+        const existing = prev.find((l) => l.habit_id === habitId);
+        if (existing) {
+          return prev.map((l) =>
+            l.habit_id === habitId ? { ...l, completed: false } : l
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            habit_id: habitId,
+            date,
+            completed: false,
+            value: null,
+            note: null,
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
+    } catch (err) {
+      console.error(`useDateLogs skip failed — habit ${habitId}, date ${date}:`, err);
+    }
+  }, [date]);
+
+  return { logs, loading, error, toggle, skip, saveNote, reload: load };
 }
 
 // ── useCalendarLogs: fetches logs for a date range (month/week views) ──

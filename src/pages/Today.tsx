@@ -16,7 +16,7 @@ import {
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
   MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
-  CalendarOff, RotateCcw, ArrowUpDown, Minus, Timer, Play, Square,
+  CalendarOff, RotateCcw, ArrowUpDown, Minus, Timer, Play, Square, X,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
@@ -216,6 +216,7 @@ function HabitList({
   categories,
   getHabitStats,
   toggle,
+  skip,
   onNoteClick,
   onHabitMenu,
   onLongPress,
@@ -231,6 +232,7 @@ function HabitList({
   categories: Category[];
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
   toggle: (habitId: string, completed: boolean, value?: number | null) => void;
+  skip?: (habitId: string) => void;
   onNoteClick: (habit: Habit) => void;
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
   onLongPress?: (habit: Habit, pos: { x: number; y: number }) => void;
@@ -284,7 +286,10 @@ function HabitList({
         const atRisk    = isToday && !completed && stats.streak > 0;
         const isNumeric = habit.completion_type === "numeric";
         const isTimer   = habit.completion_type === "timer";
+        const isBinary  = !isNumeric && !isTimer;
         const activeTimer = activeTimers?.get(habit.id) ?? null;
+        // A log with completed=false means explicitly skipped (distinct from no log at all)
+        const skipped = log !== undefined && !log.completed;
 
         return (
           <div
@@ -316,37 +321,50 @@ function HabitList({
                   }
                 }}
               />
+            ) : isBinary ? (
+              // Binary habits: explicit Done / Skip pair
+              <div className="habit-check-pair">
+                <button
+                  className={`habit-skip-btn ${skipped ? "habit-skip-btn--active" : ""}`}
+                  onClick={() => {
+                    if (skipped) {
+                      // clicking again on "skipped" removes the log (pending state)
+                      handleToggle(habit.id, false);
+                    } else {
+                      skip?.(habit.id);
+                    }
+                  }}
+                  title={t("today.markNotDone")}
+                  aria-label={t("today.markNotDone")}
+                >
+                  <X size={18} />
+                </button>
+                <button
+                  className={`check-btn ${completed ? (habit.type === "bad" ? "check-btn-avoided" : "check-btn-done") : ""}`}
+                  onClick={() => { handleToggle(habit.id, completed); setExpandedNumeric(null); }}
+                  aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
+                  title={habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
+                >
+                  {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
+                </button>
+              </div>
             ) : (
+              // Numeric habits: original single button
               <button
-                className={`check-btn ${
-                  completed
-                    ? habit.type === "bad" ? "check-btn-avoided" : "check-btn-done"
-                    : ""
-                }`}
+                className={`check-btn ${completed ? "check-btn-done" : ""}`}
                 onClick={() => {
-                  if (isNumeric && !completed) {
-                    setExpandedNumeric(habit.id === expandedNumeric ? null : habit.id);
-                  } else {
-                    handleToggle(habit.id, completed);
-                    setExpandedNumeric(null);
-                  }
+                  if (!completed) setExpandedNumeric(habit.id === expandedNumeric ? null : habit.id);
+                  else { handleToggle(habit.id, completed); setExpandedNumeric(null); }
                 }}
-                aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
-                title={
-                  isNumeric
-                    ? `${log?.value ?? 0} / ${habit.completion_target ?? "?"} ${habit.completion_unit ?? ""}`
-                    : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")
-                }
+                title={`${log?.value ?? 0} / ${habit.completion_target ?? "?"} ${habit.completion_unit ?? ""}`}
               >
                 {completed ? (
                   <CheckCircle2 size={26} />
-                ) : isNumeric ? (
+                ) : (
                   <div className="numeric-check-badge">
                     <Timer size={14} />
                     <span>{log?.value ?? 0}/{habit.completion_target ?? "?"}</span>
                   </div>
-                ) : (
-                  <Circle size={26} />
                 )}
               </button>
             )}
@@ -828,7 +846,7 @@ export function Today() {
 
   // ── Data ──────────────────────────────────────────────────
   const { habits, loading: habitsLoading, create, update, archive, remove } = useHabits();
-  const { logs, loading: logsLoading, toggle, saveNote, reload: reloadDayLogs } =
+  const { logs, loading: logsLoading, toggle, skip: skipHabit, saveNote, reload: reloadDayLogs } =
     useDateLogs(selectedDate);
   const { categories } = useCategories();
   const { getHabitStats } = useStats();
@@ -1162,8 +1180,6 @@ export function Today() {
     (dateStr: string) => {
       setSelectedDate(dateStr);
       setViewDate(parseISO(dateStr + "T00:00:00"));
-      if (calView === "monthly") return;
-      setCalView("daily");
     },
     [calView]
   );
@@ -1221,6 +1237,7 @@ export function Today() {
     categories,
     getHabitStats,
     toggle: toggleWithUndo,
+    skip: skipHabit,
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
     onLongPress: handleLongPress,
@@ -1368,7 +1385,7 @@ export function Today() {
 
       {/* ── Weekly layout ───────────────────────────────────── */}
       {calView === "weekly" && (
-        <div className="page">
+        <div className="page today-page--weekly">
           <HabitCalendar
             view="weekly"
             viewDate={viewDate}
@@ -1380,7 +1397,6 @@ export function Today() {
             onDateSelect={(dateStr) => {
               setSelectedDate(dateStr);
               setViewDate(parseISO(dateStr + "T00:00:00"));
-              setCalView("daily");
             }}
             onNavigate={handleNavigate}
             onJumpTo={handleJumpTo}

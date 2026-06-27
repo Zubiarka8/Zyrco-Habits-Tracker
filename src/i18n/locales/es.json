@@ -51,7 +51,8 @@
     "timerDone": "¡Objetivo completado! Así se hace 💪",
     "compactView": "Vista compacta",
     "atRiskMsg": "¡{{count}} racha(s) en riesgo esta noche — no rompas la cadena!",
-    "undo": "Deshacer"
+    "undo": "Deshacer",
+    "markNotDone": "Marcar como no hecho"
   },
   "habits": {
     "title": "Mis Hábitos",

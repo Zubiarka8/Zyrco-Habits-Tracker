@@ -138,28 +138,59 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ── Page ───────────────────────────────────────────────── */
-/* Responsive max-width: grows proportionally with the screen so large monitors
-   don't waste space with a fixed 860px column. */
 .page { max-width: 900px; }
-.today-page--monthly { max-width: 100%; }
+.today-page--monthly,
+.today-page--weekly { max-width: 100%; }
 
 @media (min-width: 1280px) {
-  .page { max-width: 1100px; }
+  .page { max-width: 1200px; }
   .main-content { padding: 36px 48px; }
 }
-@media (min-width: 1600px) {
-  .page { max-width: 1400px; }
-  .main-content { padding: 40px 60px; }
-}
-@media (min-width: 1920px) {
-  .page { max-width: 1680px; }
-  .main-content { padding: 44px 72px; }
-  /* On 1080p+ screens, habit cards in flat list become 2 columns */
-  .habits-grid:not(:has(.cat-group)) {
+
+@media (min-width: 1400px) {
+  /* 2-col habit grid — excludes category-grouped view and calendar day panel */
+  .habits-grid:not(:has(.cat-group)),
+  .page .habit-list:not(.habit-list--compact):not(.cal-day-panel-body .habit-list) {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+  /* Stats charts side by side */
+  .stats-charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .page { max-width: 100%; }
+  .main-content { padding: 40px 56px; }
+  :root { --sidebar-width: 240px; }
+}
+
+@media (min-width: 1920px) {
+  .main-content { padding: 44px 72px; }
+  :root { --sidebar-width: 260px; }
+  .habits-grid:not(:has(.cat-group)),
+  .page .habit-list:not(.habit-list--compact):not(.cal-day-panel-body .habit-list) {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+@media (min-width: 2560px) {
+  .main-content { padding: 48px 88px; }
+  :root { --sidebar-width: 280px; }
+  .habits-grid:not(:has(.cat-group)),
+  .page .habit-list:not(.habit-list--compact):not(.cal-day-panel-body .habit-list) {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Calendar day panel always single-column regardless of screen width */
+.cal-day-panel-body .habit-list {
+  display: flex !important;
+  flex-direction: column;
 }
 .page-loading {
   display: flex;
@@ -508,6 +539,39 @@ a { text-decoration: none; color: inherit; }
 }
 .check-btn:hover { transform: scale(1.1); }
 .check-btn-done { color: var(--color-success); }
+
+/* ── Done / Skip pair for binary habits ──────────────────── */
+.habit-check-pair {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.habit-skip-btn {
+  border: none;
+  background: transparent;
+  padding: 3px 6px;
+  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  opacity: 0.45;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  cursor: pointer;
+  font-size: 12px;
+}
+.habit-skip-btn:hover {
+  opacity: 1;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+.habit-skip-btn--active {
+  opacity: 1;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
 
 .habit-info { flex: 1; min-width: 0; }
 
@@ -1366,22 +1430,31 @@ a { text-decoration: none; color: inherit; }
 
 /* The page wrapper stretches to fill the full content area height */
 .today-page--monthly {
-  height: calc(100vh - 64px); /* 2 × 32px top/bottom padding from main-content */
+  height: 100%; /* adapts to main-content content-box at every breakpoint */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0 !important;
 }
 
-/* Side-by-side: calendar fills the left, panel is fixed-width on the right */
+/* Side-by-side: calendar fills the left, panel grows proportionally on wide screens */
 .today-split {
   display: grid;
   grid-template-columns: 1fr 340px;
-  gap: 0;
   flex: 1;
   min-height: 0;
-  padding: 20px 28px 20px 28px;
+  padding: 20px 28px;
   gap: 20px;
+}
+
+@media (min-width: 1400px) {
+  .today-split { grid-template-columns: 1fr 400px; }
+}
+@media (min-width: 1920px) {
+  .today-split { grid-template-columns: 1fr 480px; gap: 28px; }
+}
+@media (min-width: 2560px) {
+  .today-split { grid-template-columns: 1fr 560px; gap: 36px; }
 }
 
 /* Calendar side — stretches to fill the grid row */
@@ -3894,7 +3967,7 @@ a { text-decoration: none; color: inherit; }
    ══════════════════════════════════════════════════════════════ */
 .cal-page {
   padding: 0;
-  max-width: 900px;
+  max-width: 100%;
   overflow-x: hidden;
 }
 

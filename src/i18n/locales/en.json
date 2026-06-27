@@ -51,7 +51,8 @@
     "timerDone": "Target reached! Keep it up 💪",
     "compactView": "Compact view",
     "atRiskMsg": "{{count}} streak(s) at risk tonight — don't break the chain!",
-    "undo": "Undo"
+    "undo": "Undo",
+    "markNotDone": "Mark as not done"
   },
   "habits": {
     "title": "My Habits",

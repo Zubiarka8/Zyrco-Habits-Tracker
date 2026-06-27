@@ -484,9 +484,6 @@ export function HabitCalendar({
 
   const handleDateSelect = (dateStr: string) => {
     onDateSelect(dateStr);
-    // In monthly view, day clicks only update the right panel — no view switch.
-    // Weekly view does switch to daily for focused day editing.
-    if (view === "weekly") onViewChange("daily");
   };
 
   const handleJumpToMonth = (month: number) => {

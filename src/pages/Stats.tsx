@@ -37,23 +37,17 @@ export function Stats() {
   const { habits, logs, loading, getHabitStats, getOverallStats } = useStats();
   const { categories } = useCategories();
 
-  if (loading) return <div className="page-loading">{t("common.loading")}</div>;
+  // ALL hooks must be above any conditional return (React rules)
+  const periodDates = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: period }, (_, i) =>
+      format(subDays(now, period - 1 - i), "yyyy-MM-dd")
+    );
+  }, [period]);
 
-  const overall = getOverallStats(period);
-  const hasDataInPeriod = overall.byDate.some((d) => d.completed > 0);
-
-  // ── Period date range ─────────────────────────────────────
-  const today      = new Date();
-  const todayStr   = format(today, "yyyy-MM-dd");
-  const periodDates = Array.from({ length: period }, (_, i) =>
-    format(subDays(today, period - 1 - i), "yyyy-MM-dd")
-  );
-
-  // ── Per-day rate data for line/area chart ─────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const rateChartData = useMemo(() => {
     if (habits.length === 0) return [];
-    const interval = period === 7 ? 1 : period === 30 ? 1 : period === 90 ? 7 : 30;
+    const interval = period <= 30 ? 1 : period === 90 ? 7 : 30;
     const buckets: { date: string; rate: number | null; completions: number }[] = [];
     for (let i = 0; i < periodDates.length; i += interval) {
       const slice = periodDates.slice(i, i + interval);
@@ -70,48 +64,42 @@ export function Stats() {
       });
     }
     return buckets;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [habits, logs, period]);
+  }, [habits, logs, period, periodDates]);
 
-  // ── Day-of-week distribution ──────────────────────────────
   const dowData = useMemo(() => {
-    const dowNames: string[] = [0, 1, 2, 3, 4, 5, 6].map(
-      (d) => t(`common.days.${d}`)
-    );
-    // Display Mon→Sun
+    const dowNames: string[] = [0, 1, 2, 3, 4, 5, 6].map((d) => t(`common.days.${d}`));
     return [1, 2, 3, 4, 5, 6, 0].map((dow) => {
-      const dowDates = periodDates.filter(
-        (d) => parseISO(d + "T00:00:00").getDay() === dow
-      );
+      const dowDates = periodDates.filter((d) => parseISO(d + "T00:00:00").getDay() === dow);
       let due = 0, done = 0;
       dowDates.forEach((date) => {
         const day = parseISO(date + "T00:00:00");
         due += habits.filter((h) => isHabitDueOnDay(h, day)).length;
         done += logs.filter((l) => l.date === date && l.completed).length;
       });
-      return {
-        day: dowNames[dow],
-        rate: due > 0 ? Math.round((done / due) * 100) : 0,
-      };
+      return { day: dowNames[dow], rate: due > 0 ? Math.round((done / due) * 100) : 0 };
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [habits, logs, period, t]);
+  }, [habits, logs, periodDates, t]);
 
-  // ── Perfect days & active days ────────────────────────────
   const { perfectDays, activeDays } = useMemo(() => {
     let perfect = 0, active = 0;
     periodDates.forEach((date) => {
       const day = parseISO(date + "T00:00:00");
       const due = habits.filter((h) => isHabitDueOnDay(h, day));
-      const dayLogs = logs.filter((l) => l.date === date && l.completed);
-      if (dayLogs.length > 0) active++;
+      if (logs.some((l) => l.date === date && l.completed)) active++;
       if (due.length > 0 && due.every((h) => logs.some((l) => l.habit_id === h.id && l.date === date && l.completed))) {
         perfect++;
       }
     });
     return { perfectDays: perfect, activeDays: active };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [habits, logs, period]);
+  }, [habits, logs, periodDates]);
+
+  if (loading) return <div className="page-loading">{t("common.loading")}</div>;
+
+  const overall = getOverallStats(period);
+  const hasDataInPeriod = overall.byDate.some((d) => d.completed > 0);
+
+  const today      = new Date();
+  const todayStr   = format(today, "yyyy-MM-dd");
 
   const chartData = overall.byDate.map((d) => ({
     date: format(parseISO(d.date + "T00:00:00"), "MM/dd"),
@@ -305,85 +293,88 @@ export function Stats() {
         </div>
       </div>
 
-      {/* Completion rate trend — area chart */}
-      <div className="chart-section">
-        <h2 className="section-title">{t("stats.rateOverTime")}</h2>
-        <div className="chart-wrapper">
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={rateChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <defs>
-                <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickLine={false} />
-              <YAxis
-                tick={{ fontSize: 11, fill: "var(--color-muted)" }}
-                tickLine={false}
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip
-                contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`${v ?? 0}%`, t("stats.completionRate")]}
-              />
-              <Area
-                type="monotone"
-                dataKey="rate"
-                stroke="var(--color-primary)"
-                strokeWidth={2}
-                fill="url(#rateGrad)"
-                dot={false}
-                connectNulls
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Daily completions bar chart */}
-      {hasDataInPeriod && (
+      {/* Charts — 2-col grid on wide screens via .stats-charts-grid */}
+      <div className="stats-charts-grid">
+        {/* Completion rate trend */}
         <div className="chart-section">
-          <h2 className="section-title">{t("stats.activity")}</h2>
+          <h2 className="section-title">{t("stats.rateOverTime")}</h2>
           <div className="chart-wrapper">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={rateChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="rateGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis
-                  dataKey="date"
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickLine={false} />
+                <YAxis
                   tick={{ fontSize: 11, fill: "var(--color-muted)" }}
                   tickLine={false}
-                  interval={period === 7 ? 0 : period === 30 ? 4 : 14}
+                  domain={[0, 100]}
+                  tickFormatter={(v) => `${v}%`}
                 />
-                <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickLine={false} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v) => [`${v ?? 0}%`, t("stats.completionRate")]}
                 />
-                <Bar dataKey="completions" name={t("stats.completions")} fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Area
+                  type="monotone"
+                  dataKey="rate"
+                  stroke="var(--color-primary)"
+                  strokeWidth={2}
+                  fill="url(#rateGrad)"
+                  dot={false}
+                  connectNulls
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
-      )}
 
-      {/* Day-of-week distribution */}
-      <div className="chart-section">
-        <h2 className="section-title">{t("stats.byDayOfWeek")}</h2>
-        <div className="chart-wrapper">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={dowData} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
-              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickFormatter={(v) => `${v}%`} tickLine={false} />
-              <YAxis type="category" dataKey="day" tick={{ fontSize: 12, fill: "var(--color-text)" }} tickLine={false} width={32} />
-              <Tooltip
-                contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
-                formatter={(v) => [`${v ?? 0}%`, t("stats.completionRate")]}
-              />
-              <Bar dataKey="rate" name={t("stats.completionRate")} fill="var(--color-accent, var(--color-primary))" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Daily completions */}
+        {hasDataInPeriod && (
+          <div className="chart-section">
+            <h2 className="section-title">{t("stats.activity")}</h2>
+            <div className="chart-wrapper">
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: "var(--color-muted)" }}
+                    tickLine={false}
+                    interval={period === 7 ? 0 : period === 30 ? 4 : 14}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Bar dataKey="completions" name={t("stats.completions")} fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Day-of-week distribution */}
+        <div className="chart-section">
+          <h2 className="section-title">{t("stats.byDayOfWeek")}</h2>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={dowData} layout="vertical" margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-muted)" }} tickFormatter={(v) => `${v}%`} tickLine={false} />
+                <YAxis type="category" dataKey="day" tick={{ fontSize: 12, fill: "var(--color-text)" }} tickLine={false} width={32} />
+                <Tooltip
+                  contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
+                  formatter={(v) => [`${v ?? 0}%`, t("stats.completionRate")]}
+                />
+                <Bar dataKey="rate" name={t("stats.completionRate")} fill="var(--color-accent, var(--color-primary))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 
