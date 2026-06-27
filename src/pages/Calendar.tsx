@@ -1,22 +1,20 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   format,
   addMonths, subMonths,
   startOfMonth, endOfMonth,
-  startOfWeek, endOfWeek,
   eachDayOfInterval,
   isSameMonth, isToday, isFuture,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, X, CheckCircle2, Circle } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
-import { useCalendarLogs } from "../hooks/useLogs";
-import { useDateLogs } from "../hooks/useLogs";
+import { useCalendarLogs, useDateLogs } from "../hooks/useLogs";
 import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit } from "../types";
 
-// ── Day drawer ────────────────────────────────────────────────────────────────
+// ── Day drawer (bottom sheet) ─────────────────────────────────────────────────
 
 interface DayDrawerProps {
   day: Date;
@@ -46,8 +44,7 @@ function DayDrawer({ day, dueHabits, onClose }: DayDrawerProps) {
   );
 
   const completedCount = dueHabits.filter((h) => getLog(h.id)?.completed).length;
-  const totalCount = dueHabits.length;
-  const allDone = totalCount > 0 && completedCount === totalCount;
+  const allDone = dueHabits.length > 0 && completedCount === dueHabits.length;
 
   return (
     <>
@@ -60,9 +57,9 @@ function DayDrawer({ day, dueHabits, onClose }: DayDrawerProps) {
             <span className="cal-drawer-date" style={{ textTransform: "capitalize" }}>
               {format(day, "EEEE, d MMMM", { locale })}
             </span>
-            {totalCount > 0 && (
+            {dueHabits.length > 0 && (
               <span className={`cal-drawer-chip ${allDone ? "cal-drawer-chip--done" : ""}`}>
-                {allDone ? "✓ " : ""}{completedCount}/{totalCount}
+                {allDone ? "✓ " : ""}{completedCount}/{dueHabits.length}
               </span>
             )}
           </div>
@@ -71,7 +68,7 @@ function DayDrawer({ day, dueHabits, onClose }: DayDrawerProps) {
           </button>
         </div>
 
-        {totalCount === 0 ? (
+        {dueHabits.length === 0 ? (
           <p className="cal-drawer-empty">{t("calendar.noHabitsDay")}</p>
         ) : (
           <div className="cal-drawer-list">
@@ -114,12 +111,11 @@ function DayDrawer({ day, dueHabits, onClose }: DayDrawerProps) {
 
 // ── Calendar page ─────────────────────────────────────────────────────────────
 
-const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] as const;
-
 export function Calendar() {
   const { t } = useTranslation();
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const todayRowRef = useRef<HTMLDivElement>(null);
 
   const { habits, loading: habitsLoading } = useHabits();
 
@@ -130,7 +126,7 @@ export function Calendar() {
 
   const { logs } = useCalendarLogs(startStr, endStr);
 
-  // Build log map for O(1) lookups: dateStr → log[]
+  // dateStr → Log[] map for O(1) lookups
   const logMap = useMemo(() => {
     const map = new Map<string, typeof logs>();
     logs.forEach((log) => {
@@ -141,13 +137,9 @@ export function Calendar() {
     return map;
   }, [logs]);
 
-  // Grid: full weeks around the month (Monday-first)
-  const gridDays = useMemo(
-    () =>
-      eachDayOfInterval({
-        start: startOfWeek(monthStart, { weekStartsOn: 1 }),
-        end: endOfWeek(monthEnd, { weekStartsOn: 1 }),
-      }),
+  // All days in the month (no padding rows)
+  const monthDays = useMemo(
+    () => eachDayOfInterval({ start: monthStart, end: monthEnd }),
     [monthStart, monthEnd]
   );
 
@@ -156,7 +148,6 @@ export function Calendar() {
     [habits]
   );
 
-  /** Habits due on `day` (respects paused_until, start_date, end_date). */
   const getDueHabits = useCallback(
     (day: Date) => {
       const dateStr = format(day, "yyyy-MM-dd");
@@ -168,18 +159,27 @@ export function Calendar() {
     [activeHabits]
   );
 
-  // Month-level summary (up to today)
+  // Auto-scroll to today's row when viewing the current month
+  useEffect(() => {
+    if (!isSameMonth(new Date(), viewDate)) return;
+    const timer = setTimeout(() => {
+      todayRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [viewDate]);
+
+  // Month-level completion summary
   const monthSummary = useMemo(() => {
     const today = new Date();
     let due = 0;
     let done = 0;
-    eachDayOfInterval({ start: monthStart, end: today > monthEnd ? monthEnd : today }).forEach(
+    eachDayOfInterval({ start: monthStart, end: today < monthEnd ? today : monthEnd }).forEach(
       (day) => {
         const dateStr = format(day, "yyyy-MM-dd");
-        const dayHabits = getDueHabits(day);
+        const dueHabits = getDueHabits(day);
         const dayLogs = logMap.get(dateStr) ?? [];
-        due += dayHabits.length;
-        done += dayHabits.filter((h) =>
+        due += dueHabits.length;
+        done += dueHabits.filter((h) =>
           dayLogs.some((l) => l.habit_id === h.id && l.completed)
         ).length;
       }
@@ -243,101 +243,87 @@ export function Calendar() {
         </div>
       )}
 
-      {/* Weekday header */}
-      <div className="cal-weekdays">
-        {WEEKDAYS.map((d) => (
-          <span key={d} className="cal-weekday">
-            {t(`calendar.weekday_${d.toLowerCase()}`)}
-          </span>
-        ))}
-      </div>
-
-      {/* Day grid */}
-      <div className="cal-grid">
-        {gridDays.map((day) => {
-          const inMonth = isSameMonth(day, viewDate);
+      {/* Day list */}
+      <div className="cal-day-list">
+        {monthDays.map((day) => {
           const dateStr = format(day, "yyyy-MM-dd");
           const today = isToday(day);
-          const selected =
-            selectedDay ? format(selectedDay, "yyyy-MM-dd") === dateStr : false;
-
-          if (!inMonth) {
-            return (
-              <div key={dateStr} className="cal-cell cal-cell--out">
-                <span className="cal-day-num">{format(day, "d")}</span>
-              </div>
-            );
-          }
-
+          const future = !today && isFuture(day);
           const dueHabits = getDueHabits(day);
           const dayLogs = logMap.get(dateStr) ?? [];
           const completedCount = dueHabits.filter((h) =>
             dayLogs.some((l) => l.habit_id === h.id && l.completed)
           ).length;
-          const rate =
-            dueHabits.length > 0 ? (completedCount / dueHabits.length) * 100 : -1;
-
-          // Green tint — intensity scales with completion rate
-          const bgStyle: React.CSSProperties =
-            rate > 0
-              ? { background: `rgba(34,197,94,${((rate / 100) * 0.18).toFixed(2)})` }
-              : {};
+          const allDone = dueHabits.length > 0 && completedCount === dueHabits.length;
+          const hasHabits = dueHabits.length > 0;
+          const wdKey = format(day, "EEE").toLowerCase().slice(0, 2);
 
           return (
             <div
               key={dateStr}
-              className={`cal-cell ${selected ? "cal-cell--selected" : ""} ${today ? "cal-cell--today-wrap" : ""}`}
-              style={bgStyle}
-              onClick={() => setSelectedDay(day)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && setSelectedDay(day)}
-              aria-label={dateStr}
+              ref={today ? todayRowRef : undefined}
+              className={[
+                "cal-day-row",
+                today ? "cal-day-row--today" : "",
+                future ? "cal-day-row--future" : "",
+                !hasHabits ? "cal-day-row--empty" : "",
+                allDone ? "cal-day-row--alldone" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => hasHabits && setSelectedDay(day)}
+              role={hasHabits ? "button" : undefined}
+              tabIndex={hasHabits ? 0 : undefined}
+              onKeyDown={
+                hasHabits
+                  ? (e) => e.key === "Enter" && setSelectedDay(day)
+                  : undefined
+              }
             >
-              <span className={`cal-day-num ${today ? "cal-day-num--today" : ""}`}>
+              {/* Day circle */}
+              <span className={`cal-day-circle ${today ? "cal-day-circle--today" : ""}`}>
                 {format(day, "d")}
               </span>
 
-              {dueHabits.length > 0 && (
-                <div className="cal-dots">
-                  {dueHabits.slice(0, 7).map((h) => {
+              {/* Weekday abbreviation */}
+              <span className="cal-day-wd">
+                {t(`calendar.weekday_${wdKey}`)}
+              </span>
+
+              {/* Habit emoji chips */}
+              <div className="cal-day-chips">
+                {!hasHabits ? (
+                  <span className="cal-day-rest">—</span>
+                ) : (
+                  dueHabits.slice(0, 10).map((h) => {
                     const done = dayLogs.some(
                       (l) => l.habit_id === h.id && l.completed
                     );
                     return (
                       <span
                         key={h.id}
-                        className="cal-dot"
-                        style={{ background: done ? h.color : "var(--color-border)" }}
-                      />
+                        className={`cal-chip ${done ? "cal-chip--done" : "cal-chip--pending"}`}
+                        style={done ? { background: h.color + "22" } : undefined}
+                        title={h.name}
+                      >
+                        {h.icon}
+                      </span>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </div>
 
-              {/* All-done indicator */}
-              {rate === 100 && (
-                <span className="cal-all-done" aria-hidden="true">✓</span>
+              {/* Completion fraction */}
+              {hasHabits && (
+                <span
+                  className={`cal-day-frac ${allDone ? "cal-day-frac--done" : future ? "cal-day-frac--future" : completedCount === 0 ? "cal-day-frac--zero" : ""}`}
+                >
+                  {allDone ? "✓" : `${completedCount}/${dueHabits.length}`}
+                </span>
               )}
             </div>
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="cal-legend">
-        <span className="cal-legend-item">
-          <span className="cal-dot" style={{ background: "var(--color-primary)" }} />
-          {t("calendar.legendDone")}
-        </span>
-        <span className="cal-legend-item">
-          <span className="cal-dot" style={{ background: "var(--color-border)" }} />
-          {t("calendar.legendPending")}
-        </span>
-        <span className="cal-legend-item">
-          <span className="cal-legend-green-swatch" />
-          {t("calendar.legendRate")}
-        </span>
       </div>
 
       {/* Day drawer */}

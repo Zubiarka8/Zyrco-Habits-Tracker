@@ -3752,124 +3752,127 @@ a { text-decoration: none; color: inherit; }
 }
 .cal-summary-rate { color: var(--color-muted); font-weight: 400; }
 
-/* ── Weekday header ──────────────────────────────────────── */
-.cal-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  padding: 0 8px 4px;
+/* ── Day list ────────────────────────────────────────────── */
+.cal-day-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px 32px;
+  gap: 1px;
 }
-.cal-weekday {
-  text-align: center;
+
+.cal-day-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+  min-height: 46px;
+}
+.cal-day-row:hover:not(.cal-day-row--empty) {
+  background: var(--color-surface-alt);
+}
+.cal-day-row--today {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+.cal-day-row--today:hover {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+.cal-day-row--alldone {
+  background: color-mix(in srgb, #22c55e 7%, transparent);
+}
+.cal-day-row--alldone:hover {
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+}
+.cal-day-row--future { opacity: 0.55; }
+.cal-day-row--empty {
+  cursor: default;
+  opacity: 0.3;
+  min-height: 36px;
+  padding: 4px 10px;
+}
+
+/* ── Day circle ──────────────────────────────────────────── */
+.cal-day-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+  line-height: 1;
+}
+.cal-day-circle--today {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
+}
+
+/* ── Weekday label ───────────────────────────────────────── */
+.cal-day-wd {
   font-size: 11px;
   font-weight: 700;
   color: var(--color-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  width: 22px;
+  flex-shrink: 0;
 }
 
-/* ── Day grid ────────────────────────────────────────────── */
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 3px;
-  padding: 0 8px;
-}
-.cal-cell {
+/* ── Emoji habit chips ───────────────────────────────────── */
+.cal-day-chips {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
-  padding: 6px 2px 6px;
-  border-radius: 10px;
-  cursor: pointer;
-  min-height: 58px;
-  transition: filter 0.12s, outline 0.1s;
-  user-select: none;
-  position: relative;
+  align-items: center;
+  min-width: 0;
 }
-.cal-cell:hover { filter: brightness(0.93); }
-.cal-cell:focus-visible { outline: 2px solid var(--color-primary); }
-.cal-cell--out {
-  opacity: 0.18;
-  pointer-events: none;
-  cursor: default;
-  min-height: 58px;
-}
-.cal-cell--selected {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -1px;
-}
-.cal-cell--today-wrap { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
-
-/* ── Day number circle ───────────────────────────────────── */
-.cal-day-num {
+.cal-chip {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 7px;
+  font-size: 15px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: filter 0.12s, opacity 0.12s;
+}
+.cal-chip--done {
+  filter: none;
+  opacity: 1;
+}
+.cal-chip--pending {
+  filter: grayscale(1);
+  opacity: 0.28;
+}
+.cal-day-rest {
+  font-size: 14px;
+  color: var(--color-border);
+  line-height: 1;
+}
+
+/* ── Completion fraction ─────────────────────────────────── */
+.cal-day-frac {
   font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text);
-  flex-shrink: 0;
-  line-height: 1;
-}
-.cal-day-num--today {
-  background: var(--color-primary);
-  color: #fff;
   font-weight: 700;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
-}
-
-/* ── Habit dots ──────────────────────────────────────────── */
-.cal-dots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  justify-content: center;
-  max-width: 40px;
-}
-.cal-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+  min-width: 30px;
+  text-align: right;
   flex-shrink: 0;
-}
-
-/* ── All-done checkmark ──────────────────────────────────── */
-.cal-all-done {
-  position: absolute;
-  top: 4px;
-  right: 5px;
-  font-size: 8px;
-  font-weight: 800;
-  color: #22c55e;
-  line-height: 1;
-}
-
-/* ── Legend ──────────────────────────────────────────────── */
-.cal-legend {
-  display: flex;
-  gap: 14px;
-  padding: 14px 16px 8px;
-  flex-wrap: wrap;
-}
-.cal-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
   color: var(--color-muted);
 }
-.cal-legend-green-swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  background: rgba(34,197,94,0.16);
-  border: 1px solid rgba(34,197,94,0.35);
-  flex-shrink: 0;
-}
+.cal-day-frac--done  { color: #22c55e; }
+.cal-day-frac--zero  { color: var(--color-border); font-weight: 400; }
+.cal-day-frac--future { color: var(--color-border); font-weight: 400; }
 
 /* ── Day drawer (bottom sheet) ───────────────────────────── */
 .cal-backdrop {
@@ -4003,17 +4006,14 @@ a { text-decoration: none; color: inherit; }
 
 /* ── Calendar responsive tweaks ─────────────────────────── */
 @media (max-width: 600px) {
-  .cal-grid { gap: 2px; padding: 0 4px; }
-  .cal-cell { min-height: 52px; padding: 4px 1px 4px; border-radius: 8px; }
-  .cal-day-num { width: 24px; height: 24px; font-size: 11px; }
-  .cal-dot { width: 4px; height: 4px; }
-  .cal-dots { gap: 2px; max-width: 34px; }
   .cal-month-title { min-width: 130px; font-size: 1rem; }
   .cal-drawer { border-radius: 14px 14px 0 0; }
-  .cal-all-done { top: 2px; right: 3px; font-size: 7px; }
+  .cal-day-list { padding: 4px 4px 80px; }
+  .cal-day-row { gap: 8px; padding: 6px 8px; }
+  .cal-chip { width: 26px; height: 26px; font-size: 14px; }
 }
 @media (max-width: 360px) {
-  .cal-cell { min-height: 46px; }
-  .cal-day-num { width: 20px; height: 20px; font-size: 10px; }
-  .cal-dot { width: 3px; height: 3px; }
+  .cal-day-circle { width: 28px; height: 28px; font-size: 11px; }
+  .cal-chip { width: 24px; height: 24px; font-size: 13px; }
+  .cal-day-wd { width: 18px; font-size: 10px; }
 }
