@@ -55,16 +55,16 @@ export function useDateLogs(date: string) {
 
   useEffect(() => { load(); }, [load]);
 
-  const toggle = useCallback(async (habitId: string, currentCompleted: boolean) => {
+  const toggle = useCallback(async (habitId: string, currentCompleted: boolean, value?: number | null) => {
     const next = !currentCompleted;
     try {
-      await upsertLog(habitId, date, next);
+      await upsertLog(habitId, date, next, null, value ?? null);
       notifyLogChanged();
       setLogs((prev) => {
         const existing = prev.find((l) => l.habit_id === habitId);
         if (existing) {
           return prev.map((l) =>
-            l.habit_id === habitId ? { ...l, completed: next } : l
+            l.habit_id === habitId ? { ...l, completed: next, value: value ?? l.value } : l
           );
         }
         return [
@@ -74,6 +74,7 @@ export function useDateLogs(date: string) {
             habit_id: habitId,
             date,
             completed: next,
+            value: value ?? null,
             note: null,
             created_at: new Date().toISOString(),
           },
@@ -105,6 +106,7 @@ export function useDateLogs(date: string) {
             habit_id: habitId,
             date,
             completed: true,
+            value: null,
             note,
             created_at: new Date().toISOString(),
           },

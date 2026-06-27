@@ -183,3 +183,7 @@
 - 2026-06-26: App icon still uses Tauri default — custom icon pending
 - 2026-06-26: Production build untested (dev build blocked by MSVC until today)
 - 2026-06-26: Mobile bottom nav needs testing on real Android/iOS device via Tauri mobile target
+- 2026-06-27: P-03/P-04/P-05/P-07/P-01/P-02 sprint implemented. Habits table has session, completion_type, completion_target, completion_unit columns. Logs table has value column. All via ALTER TABLE migration in initSchema.
+- 2026-06-27: `HabitStats.strengthScore` (0-100 EMA) computed in useStats — shown as inline bar in habit rows
+- 2026-06-27: Timer habits use ephemeral React state (Map in Today.tsx) — timers reset on page navigation or app reload, by design
+- 2026-06-27: AnnualHeatmap uses isHabitDueOnDay per-day which is O(365 × habits) — acceptable for local desktop use, would need memoization if habit count exceeds ~200

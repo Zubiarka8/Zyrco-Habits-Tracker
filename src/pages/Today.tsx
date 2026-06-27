@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   format,
@@ -15,7 +15,7 @@ import {
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
   MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
-  CalendarOff, RotateCcw, ArrowUpDown,
+  CalendarOff, RotateCcw, ArrowUpDown, Minus, Timer, Play, Square,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
@@ -36,6 +36,103 @@ import type { Habit, Log, Category } from "../types";
 type MenuState = { habitId: string; x: number; y: number } | null;
 type HabitSort = "default" | "streak-desc" | "name-asc";
 
+// ── NumericInput ──────────────────────────────────────────
+
+function NumericInput({
+  habit,
+  currentValue,
+  onConfirm,
+  onClose,
+}: {
+  habit: Habit;
+  currentValue: number | null;
+  onConfirm: (value: number) => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const [val, setVal] = useState(currentValue ?? 0);
+  const target = habit.completion_target ?? 1;
+
+  return (
+    <div className="numeric-input-row">
+      <button className="numeric-step" onClick={() => setVal((v) => Math.max(0, v - 1))}>
+        <Minus size={14} />
+      </button>
+      <input
+        className="numeric-val-input"
+        type="number"
+        min={0}
+        value={val}
+        onChange={(e) => setVal(Math.max(0, Number(e.target.value)))}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onConfirm(val);
+          if (e.key === "Escape") onClose();
+        }}
+      />
+      <span className="numeric-unit">{habit.completion_unit ?? ""} / {target}</span>
+      <button className="numeric-step" onClick={() => setVal((v) => v + 1)}>+</button>
+      <button className="btn btn-primary btn-sm" onClick={() => onConfirm(val)}>
+        {t("common.save")}
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={onClose}>
+        {t("common.cancel")}
+      </button>
+    </div>
+  );
+}
+
+// ── TimerButton ───────────────────────────────────────────
+
+function TimerButton({
+  completed,
+  activeTimer,
+  onStart,
+  onStop,
+}: {
+  completed: boolean;
+  activeTimer: { startedAt: Date } | null;
+  onStart: () => void;
+  onStop: () => void;
+}) {
+  const { t } = useTranslation();
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!activeTimer) { setElapsed(0); return; }
+    const tick = () => setElapsed(Math.floor((Date.now() - activeTimer.startedAt.getTime()) / 1000));
+    tick();
+    intervalRef.current = setInterval(tick, 1000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [activeTimer]);
+
+  if (completed) {
+    return (
+      <button className="check-btn check-btn-done" onClick={onStop} title={t("today.checkGood")}>
+        <CheckCircle2 size={26} />
+      </button>
+    );
+  }
+
+  if (activeTimer) {
+    const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
+    const ss = (elapsed % 60).toString().padStart(2, "0");
+    return (
+      <button className="timer-stop-btn" onClick={onStop} title={t("today.timerStop")}>
+        <Square size={14} />
+        <span className="timer-elapsed">{mm}:{ss}</span>
+      </button>
+    );
+  }
+
+  return (
+    <button className="timer-start-btn" onClick={onStart} title={t("today.timerStart")}>
+      <Play size={16} />
+    </button>
+  );
+}
+
 // ── HabitList ─────────────────────────────────────────────
 
 /**
@@ -52,17 +149,25 @@ function HabitList({
   onNoteClick,
   onHabitMenu,
   isToday,
+  activeTimers,
+  onTimerStart,
+  onTimerStop,
 }: {
   habits: Habit[];
   logs: Log[];
   categories: Category[];
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
-  toggle: (habitId: string, completed: boolean) => void;
+  toggle: (habitId: string, completed: boolean, value?: number | null) => void;
   onNoteClick: (habit: Habit) => void;
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
   isToday?: boolean;
+  activeTimers?: Map<string, { startedAt: Date }>;
+  onTimerStart?: (habitId: string) => void;
+  onTimerStop?: (habitId: string, elapsedMinutes: number) => void;
 }) {
   const { t } = useTranslation();
+  const [expandedNumeric, setExpandedNumeric] = useState<string | null>(null);
+
   const getLog = useCallback(
     (habitId: string) => logs.find((l) => l.habit_id === habitId),
     [logs]
@@ -76,6 +181,9 @@ function HabitList({
         const stats     = getHabitStats(habit.id);
         const category  = categories.find((c) => c.id === habit.category_id);
         const atRisk    = isToday && !completed && stats.streak > 0;
+        const isNumeric = habit.completion_type === "numeric";
+        const isTimer   = habit.completion_type === "timer";
+        const activeTimer = activeTimers?.get(habit.id) ?? null;
 
         return (
           <div
@@ -85,30 +193,96 @@ function HabitList({
           >
             <div className="habit-color-bar" />
 
-            <button
-              className={`check-btn ${
-                completed
-                  ? habit.type === "bad" ? "check-btn-avoided" : "check-btn-done"
-                  : ""
-              }`}
-              onClick={() => toggle(habit.id, completed)}
-              aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
-              title={habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
-            >
-              {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
-            </button>
+            {isTimer ? (
+              <TimerButton
+                completed={completed}
+                activeTimer={activeTimer}
+                onStart={() => onTimerStart?.(habit.id)}
+                onStop={() => {
+                  if (activeTimer) {
+                    const elapsedMin = Math.max(1, Math.round((Date.now() - activeTimer.startedAt.getTime()) / 60000));
+                    onTimerStop?.(habit.id, elapsedMin);
+                  } else {
+                    toggle(habit.id, completed);
+                  }
+                }}
+              />
+            ) : (
+              <button
+                className={`check-btn ${
+                  completed
+                    ? habit.type === "bad" ? "check-btn-avoided" : "check-btn-done"
+                    : ""
+                }`}
+                onClick={() => {
+                  if (isNumeric && !completed) {
+                    setExpandedNumeric(habit.id === expandedNumeric ? null : habit.id);
+                  } else {
+                    toggle(habit.id, completed);
+                    setExpandedNumeric(null);
+                  }
+                }}
+                aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
+                title={
+                  isNumeric
+                    ? `${log?.value ?? 0} / ${habit.completion_target ?? "?"} ${habit.completion_unit ?? ""}`
+                    : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")
+                }
+              >
+                {completed ? (
+                  <CheckCircle2 size={26} />
+                ) : isNumeric ? (
+                  <div className="numeric-check-badge">
+                    <Timer size={14} />
+                    <span>{log?.value ?? 0}/{habit.completion_target ?? "?"}</span>
+                  </div>
+                ) : (
+                  <Circle size={26} />
+                )}
+              </button>
+            )}
 
             <div className="habit-info">
               <div className="habit-name-row">
                 <span className="habit-icon">{habit.icon}</span>
                 <span className="habit-name">{habit.name}</span>
                 {stats.streak > 0 && <StreakBadge streak={stats.streak} atRisk={atRisk} />}
+                {stats.strengthScore > 0 && (
+                  <span
+                    className="strength-bar-inline"
+                    title={`Strength: ${stats.strengthScore}%`}
+                  >
+                    <span
+                      className="strength-bar-fill"
+                      style={{
+                        width: `${stats.strengthScore}%`,
+                        background: stats.strengthScore >= 80
+                          ? "var(--color-success)"
+                          : stats.strengthScore >= 50
+                          ? "var(--color-warning)"
+                          : "var(--color-danger)",
+                      }}
+                    />
+                  </span>
+                )}
                 {habit.type !== "normal" && (
                   <span className={`type-pill type-pill-${habit.type}`}>
                     {habit.type === "bad" ? t("today.doneBad") : t("today.doneGood")}
                   </span>
                 )}
               </div>
+
+              {expandedNumeric === habit.id && (
+                <NumericInput
+                  habit={habit}
+                  currentValue={log?.value ?? null}
+                  onConfirm={(value) => {
+                    toggle(habit.id, true, value);
+                    setExpandedNumeric(null);
+                  }}
+                  onClose={() => setExpandedNumeric(null)}
+                />
+              )}
 
               {(habit.description || category) && (
                 <div className="habit-meta">
@@ -385,6 +559,84 @@ function SkippedSection({
   );
 }
 
+// ── SessionGroup ─────────────────────────────────────────
+
+const SESSION_ORDER: Habit["session"][] = ["morning", "afternoon", "evening", "anytime"];
+
+function SessionGroup({
+  session,
+  habits,
+  listProps,
+}: {
+  session: Habit["session"];
+  habits: Habit[];
+  listProps: Omit<Parameters<typeof HabitList>[0], "habits">;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(true);
+  const ICONS: Record<Habit["session"], string> = {
+    morning: "🌅",
+    afternoon: "☀️",
+    evening: "🌙",
+    anytime: "",
+  };
+
+  return (
+    <div className="session-group">
+      <button
+        className="session-group-header"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="session-group-label">
+          {ICONS[session] && <span className="session-icon">{ICONS[session]}</span>}
+          {t(`habits.session_${session}`)}
+          <span className="session-count">({habits.length})</span>
+        </span>
+        <span className="done-section-chevron">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && <HabitList habits={habits} {...listProps} />}
+    </div>
+  );
+}
+
+// ── PerfectDayBanner ──────────────────────────────────────
+
+function PerfectDayBanner({ done, total, isToday }: { done: number; total: number; isToday: boolean }) {
+  const { t } = useTranslation();
+  if (total === 0) return null;
+
+  const pct = Math.round((done / total) * 100);
+  const isPerfect = done === total && isToday;
+
+  return (
+    <div className={`perfect-day-banner ${isPerfect ? "perfect-day-banner--perfect" : ""}`}>
+      <div className="perfect-day-ring" style={{ "--pct": pct } as React.CSSProperties}>
+        <svg viewBox="0 0 36 36" className="perfect-day-svg">
+          <circle cx="18" cy="18" r="15.9" className="perfect-day-track" />
+          <circle
+            cx="18" cy="18" r="15.9"
+            className="perfect-day-progress"
+            strokeDasharray={`${pct} ${100 - pct}`}
+            strokeDashoffset="25"
+          />
+        </svg>
+        <span className="perfect-day-pct">{pct}%</span>
+      </div>
+      <div className="perfect-day-text">
+        {isPerfect ? (
+          <strong>{t("today.perfectDay")} 🎯</strong>
+        ) : (
+          <>
+            <strong>{done}/{total}</strong>
+            <span>{t("today.habitsCompleted")}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Today ─────────────────────────────────────────────────
 
 export function Today() {
@@ -430,6 +682,28 @@ export function Today() {
 
   // ── Note modal ────────────────────────────────────────────
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
+
+  // ── Active timers (P-04) ──────────────────────────────────
+  const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date }>>(new Map());
+
+  const handleTimerStart = useCallback((habitId: string) => {
+    setActiveTimers((prev) => {
+      const next = new Map(prev);
+      next.set(habitId, { startedAt: new Date() });
+      return next;
+    });
+  }, []);
+
+  const handleTimerStop = useCallback(async (habitId: string, elapsedMinutes: number) => {
+    setActiveTimers((prev) => {
+      const next = new Map(prev);
+      next.delete(habitId);
+      return next;
+    });
+    const log = logs.find((l) => l.habit_id === habitId);
+    await toggle(habitId, false, elapsedMinutes);
+    void log;
+  }, [logs, toggle]);
 
   // ── Type / category / sort filters ───────────────────────
   const [typeFilter, setTypeFilter]         = useState<"all" | "good" | "bad" | "normal">("all");
@@ -639,6 +913,9 @@ export function Today() {
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
     isToday,
+    activeTimers,
+    onTimerStart: handleTimerStart,
+    onTimerStop: handleTimerStop,
   };
 
   return (
@@ -696,12 +973,10 @@ export function Today() {
                 {dueHabits.length === 0 && skippedHabits.length === 0 && !logsLoading && (
                   <div className="empty-state">
                     <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
-                    {isToday && (
-                      <button className="btn btn-primary" onClick={openCreate}>
-                        <Plus size={16} />
-                        {t("today.addFirst")}
-                      </button>
-                    )}
+                    <button className="btn btn-primary" onClick={openCreate}>
+                      <Plus size={16} />
+                      {t("today.addFirst")}
+                    </button>
                   </div>
                 )}
 
@@ -729,6 +1004,8 @@ export function Today() {
                   </div>
                 )}
 
+                <PerfectDayBanner done={done} total={total} isToday={isToday} />
+
                 {done === total && total > 0 && (
                   <div className="all-done all-done--compact">
                     <span className="all-done-icon">🎉</span>
@@ -736,9 +1013,20 @@ export function Today() {
                   </div>
                 )}
 
-                {pendingHabits.length > 0 && (
-                  <HabitList habits={pendingHabits} {...habitListProps} />
-                )}
+                {pendingHabits.length > 0 && (() => {
+                  const bySessions = SESSION_ORDER.map((s) => ({
+                    session: s,
+                    habits: pendingHabits.filter((h) => (h.session ?? "anytime") === s),
+                  })).filter((g) => g.habits.length > 0);
+                  const hasMultipleSessions = bySessions.length > 1;
+                  return hasMultipleSessions ? (
+                    bySessions.map((g) => (
+                      <SessionGroup key={g.session} session={g.session} habits={g.habits} listProps={habitListProps} />
+                    ))
+                  ) : (
+                    <HabitList habits={pendingHabits} {...habitListProps} />
+                  );
+                })()}
 
                 {doneHabits.length > 0 && (
                   <DoneSection habits={doneHabits} {...habitListProps} />
@@ -823,8 +1111,14 @@ export function Today() {
           {dueHabits.length === 0 && skippedHabits.length === 0 && !logsLoading && (
             <div className="empty-state">
               <p>{isToday ? t("today.noHabits") : t("today.noHabitsDate")}</p>
+              <button className="btn btn-primary" onClick={openCreate}>
+                <Plus size={16} />
+                {t("today.addFirst")}
+              </button>
             </div>
           )}
+
+          <PerfectDayBanner done={done} total={total} isToday={isToday} />
 
           {done === total && total > 0 && (
             <div className="all-done">
@@ -857,9 +1151,20 @@ export function Today() {
             </div>
           )}
 
-          {pendingHabits.length > 0 && (
-            <HabitList habits={pendingHabits} {...habitListProps} />
-          )}
+          {pendingHabits.length > 0 && (() => {
+            const bySessions = SESSION_ORDER.map((s) => ({
+              session: s,
+              habits: pendingHabits.filter((h) => (h.session ?? "anytime") === s),
+            })).filter((g) => g.habits.length > 0);
+            const hasMultipleSessions = bySessions.length > 1;
+            return hasMultipleSessions ? (
+              bySessions.map((g) => (
+                <SessionGroup key={g.session} session={g.session} habits={g.habits} listProps={habitListProps} />
+              ))
+            ) : (
+              <HabitList habits={pendingHabits} {...habitListProps} />
+            );
+          })()}
 
           {doneHabits.length > 0 && (
             <DoneSection habits={doneHabits} {...habitListProps} />

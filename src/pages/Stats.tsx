@@ -20,6 +20,7 @@ import { useStats } from "../hooks/useStats";
 import { useCategories } from "../hooks/useCategories";
 import { isHabitDueOnDay } from "../utils/schedule";
 import { StreakBadge } from "../components/StreakBadge";
+import { AnnualHeatmap } from "../components/AnnualHeatmap";
 import { useNavigate } from "react-router-dom";
 
 type Period = 7 | 30 | 90;
@@ -228,6 +229,9 @@ export function Stats() {
           </div>
         </div>
       </div>
+
+      {/* Annual heatmap (P-02) */}
+      {logs.length > 0 && <AnnualHeatmap habits={habits} logs={logs} />}
 
       {/* Activity chart — only render when there's data to show */}
       {hasDataInPeriod && (

@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { format, addDays } from "date-fns";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, Sparkles } from "lucide-react";
 import { insertCategory } from "../db/database";
 import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit, Category } from "../types";
+import { TemplateLibrary } from "./TemplateLibrary";
+import type { HabitTemplate } from "../data/habitTemplates";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#ec4899", "#ef4444",
@@ -190,6 +192,10 @@ function SchedulePreview({
     color,
     icon: "⭐",
     type: "normal" as const,
+    session: "anytime" as const,
+    completion_type: "binary" as const,
+    completion_target: null,
+    completion_unit: null,
     reminder_enabled: false,
     reminder_time: null,
     created_at: refDate + "T00:00:00",
@@ -232,7 +238,7 @@ function SchedulePreview({
 // ── HabitForm ─────────────────────────────────────────────
 
 export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -273,7 +279,34 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   const [timeEndEnabled, setTimeEndEnabled] = useState(!!initial?.time_end);
   const [timeEnd, setTimeEnd]         = useState(initial?.time_end ?? "09:00");
 
+  const [session, setSession] = useState<Habit["session"]>(initial?.session ?? "anytime");
+  const [completionType, setCompletionType] = useState<Habit["completion_type"]>(
+    initial?.completion_type ?? "binary"
+  );
+  const [completionTarget, setCompletionTarget] = useState<number>(
+    initial?.completion_target ?? 1
+  );
+  const [completionUnit, setCompletionUnit] = useState(initial?.completion_unit ?? "");
+
+  const [showTemplates, setShowTemplates] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+
+  const applyTemplate = (tmpl: HabitTemplate) => {
+    const isEs = i18n.language.startsWith("es");
+    setName(isEs ? tmpl.name_es : tmpl.name);
+    setDescription(isEs ? (tmpl.description_es ?? "") : (tmpl.description ?? ""));
+    setHabitType(tmpl.type);
+    setFrequency(tmpl.frequency);
+    setCustomType(tmpl.custom_type ?? "weekdays");
+    setTargetDays(tmpl.target_days ?? [1, 2, 3, 4, 5]);
+    setIntervalDays(tmpl.interval_days ?? 2);
+    setColor(tmpl.color);
+    setIcon(tmpl.icon);
+    setSession(tmpl.session);
+    setCompletionType(tmpl.completion_type);
+    setCompletionTarget(tmpl.completion_target ?? 1);
+    setCompletionUnit(tmpl.completion_unit ?? "");
+  };
 
   const toggleDay = (day: number) => {
     setTargetDays((prev) =>
@@ -345,6 +378,10 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       color,
       icon,
       type: habitType,
+      session,
+      completion_type: completionType,
+      completion_target: completionType !== "binary" ? completionTarget : null,
+      completion_unit: completionType !== "binary" && completionUnit.trim() ? completionUnit.trim() : null,
       reminder_enabled: reminderEnabled,
       reminder_time: reminderEnabled ? reminderTime : null,
       time_start: timeEnabled ? timeStart : null,
@@ -354,6 +391,22 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
 
   return (
     <form onSubmit={handleSubmit} className="habit-form">
+      {showTemplates && (
+        <TemplateLibrary onSelect={applyTemplate} onClose={() => setShowTemplates(false)} />
+      )}
+
+      {/* Templates shortcut */}
+      {!initial && (
+        <button
+          type="button"
+          className="template-trigger-btn"
+          onClick={() => setShowTemplates(true)}
+        >
+          <Sparkles size={14} />
+          {t("habits.browseTemplates")}
+        </button>
+      )}
+
       {/* Habit type */}
       <div className="form-field">
         <label className="field-label">{t("habits.type")}</label>
@@ -668,6 +721,66 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Session — time-of-day grouping */}
+      <div className="form-field">
+        <label className="field-label">{t("habits.session")}</label>
+        <div className="session-toggle">
+          {(["morning", "afternoon", "evening", "anytime"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={`session-btn ${session === s ? "session-btn--active" : ""}`}
+              style={session === s ? { borderColor: color, color } : undefined}
+              onClick={() => setSession(s)}
+            >
+              {t(`habits.session_${s}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Completion type */}
+      <div className="form-field">
+        <label className="field-label">{t("habits.completionType")}</label>
+        <div className="custom-type-toggle">
+          {(["binary", "numeric", "timer"] as const).map((ct) => (
+            <button
+              key={ct}
+              type="button"
+              className={`custom-type-btn ${completionType === ct ? "custom-type-btn--active" : ""}`}
+              onClick={() => setCompletionType(ct)}
+            >
+              {t(`habits.completionType_${ct}`)}
+            </button>
+          ))}
+        </div>
+
+        {completionType !== "binary" && (
+          <div className="form-row" style={{ marginTop: 8 }}>
+            <div className="form-field flex-1">
+              <label className="field-label">{t("habits.completionTarget")}</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                value={completionTarget}
+                onChange={(e) => setCompletionTarget(Math.max(1, Number(e.target.value)))}
+              />
+            </div>
+            <div className="form-field flex-1">
+              <label className="field-label">{t("habits.completionUnit")}</label>
+              <input
+                className="input"
+                type="text"
+                placeholder={completionType === "numeric" ? "glasses, pages…" : "minutes"}
+                value={completionUnit}
+                onChange={(e) => setCompletionUnit(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Schedule (start / end time) */}

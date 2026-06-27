@@ -183,6 +183,23 @@ async function initSchema(database: Database): Promise<void> {
   if (!habitColNames.has("time_end")) {
     await database.execute("ALTER TABLE habits ADD COLUMN time_end TEXT");
   }
+  if (!habitColNames.has("session")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN session TEXT NOT NULL DEFAULT 'anytime'");
+  }
+  if (!habitColNames.has("completion_type")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN completion_type TEXT NOT NULL DEFAULT 'binary'");
+  }
+  if (!habitColNames.has("completion_target")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN completion_target REAL");
+  }
+  if (!habitColNames.has("completion_unit")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN completion_unit TEXT");
+  }
+
+  const logCols2 = await database.select<{ name: string }[]>("PRAGMA table_info(logs)");
+  if (!logCols2.some((c) => c.name === "value")) {
+    await database.execute("ALTER TABLE logs ADD COLUMN value REAL");
+  }
 
   // Migration: add user_id to all tables (per-user data partitioning)
   const localId = getLocalUserId();
@@ -406,6 +423,10 @@ function parseHabit(raw: RawHabit): Habit {
     target_days: raw.target_days ? JSON.parse(raw.target_days) : null,
     reminder_enabled: raw.reminder_enabled === 1,
     archived: raw.archived === 1,
+    session: (raw.session as Habit["session"]) ?? "anytime",
+    completion_type: (raw.completion_type as Habit["completion_type"]) ?? "binary",
+    completion_target: raw.completion_target ?? null,
+    completion_unit: raw.completion_unit ?? null,
   };
 }
 
@@ -430,9 +451,10 @@ export async function insertHabit(
   const sql = `INSERT INTO habits
       (id, name, description, category_id, frequency, custom_type, target_days,
        interval_days, start_date, end_date, color, icon,
-       type, reminder_enabled, reminder_time, time_start, time_end,
+       type, session, completion_type, completion_target, completion_unit,
+       reminder_enabled, reminder_time, time_start, time_end,
        created_at, archived, user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,0,$19)`;
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,0,$23)`;
   const params = [
     id,
     data.name,
@@ -447,6 +469,10 @@ export async function insertHabit(
     data.color,
     data.icon,
     data.type,
+    data.session ?? "anytime",
+    data.completion_type ?? "binary",
+    data.completion_target ?? null,
+    data.completion_unit ?? null,
     data.reminder_enabled ? 1 : 0,
     data.reminder_time ?? null,
     data.time_start ?? null,
@@ -497,7 +523,7 @@ export async function deleteHabit(id: string): Promise<void> {
 type RawLog = Omit<Log, "completed"> & { completed: number };
 
 function parseLog(raw: RawLog): Log {
-  return { ...raw, completed: raw.completed === 1 };
+  return { ...raw, completed: raw.completed === 1, value: raw.value ?? null };
 }
 
 export async function fetchLogsForDate(date: string): Promise<Log[]> {
@@ -553,15 +579,16 @@ export async function upsertLog(
   habitId: string,
   date: string,
   completed: boolean,
-  note?: string | null
+  note?: string | null,
+  value?: number | null
 ): Promise<void> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const created_at = new Date().toISOString();
-  const sql = `INSERT INTO logs (id, habit_id, date, completed, note, created_at, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     ON CONFLICT(habit_id, date) DO UPDATE SET completed = $4, note = COALESCE($5, note)`;
-  const params = [id, habitId, date, completed ? 1 : 0, note ?? null, created_at, getLocalUserId()];
+  const sql = `INSERT INTO logs (id, habit_id, date, completed, note, value, created_at, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT(habit_id, date) DO UPDATE SET completed = $4, note = COALESCE($5, note), value = COALESCE($6, value)`;
+  const params = [id, habitId, date, completed ? 1 : 0, note ?? null, value ?? null, created_at, getLocalUserId()];
   await db.execute(sql, params);
   syncToTurso(sql, params);
 }

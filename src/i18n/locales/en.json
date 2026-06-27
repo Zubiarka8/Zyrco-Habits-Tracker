@@ -40,7 +40,11 @@
     "toastDeleted": "Habit deleted",
     "sortDefault": "Default",
     "sortStreak": "Streak ↓",
-    "sortName": "Name A–Z"
+    "sortName": "Name A–Z",
+    "perfectDay": "Perfect day!",
+    "habitsCompleted": "habits done",
+    "timerStart": "Start timer",
+    "timerStop": "Stop & log time"
   },
   "habits": {
     "title": "My Habits",
@@ -94,7 +98,22 @@
     "archiveConfirm": "Archive this habit? You can unarchive it later.",
     "filterAll": "All",
     "filterActive": "Active",
-    "filterArchived": "Archived"
+    "filterArchived": "Archived",
+    "session": "Time of day",
+    "session_morning": "Morning",
+    "session_afternoon": "Afternoon",
+    "session_evening": "Evening",
+    "session_anytime": "Anytime",
+    "completionType": "Completion type",
+    "completionType_binary": "Done / Not done",
+    "completionType_numeric": "Numeric",
+    "completionType_timer": "Timer",
+    "completionTarget": "Target",
+    "completionUnit": "Unit",
+    "browseTemplates": "Browse templates",
+    "templates": "Habit templates",
+    "templatesSearch": "Search templates…",
+    "templatesEmpty": "No templates found"
   },
   "todos": {
     "title": "Tasks",
@@ -158,7 +177,12 @@
     "completionsThisMonth": "Completions",
     "rateThisMonth": "Rate this month",
     "byCategory": "By category",
-    "habitCount": "{{count}} habits"
+    "habitCount": "{{count}} habits",
+    "yearOverview": "Year overview",
+    "activeDays": "active days",
+    "perfectDays": "perfect days",
+    "less": "Less",
+    "more": "More"
   },
   "settings": {
     "title": "Settings",

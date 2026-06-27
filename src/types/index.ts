@@ -25,6 +25,14 @@ export interface Habit {
   color: string;
   icon: string;
   type: "good" | "bad" | "normal";
+  /** P-03: time-of-day grouping for Today page */
+  session: "morning" | "afternoon" | "evening" | "anytime";
+  /** P-04: how completion is tracked for this habit */
+  completion_type: "binary" | "numeric" | "timer";
+  /** P-04: target quantity (e.g. 8 for "8 glasses of water") */
+  completion_target: number | null;
+  /** P-04: unit label for numeric/timer (e.g. "glasses", "minutes") */
+  completion_unit: string | null;
   reminder_enabled: boolean;
   reminder_time: string | null;
   /** HH:MM — optional start time shown on the habit row */
@@ -40,6 +48,8 @@ export interface Log {
   habit_id: string;
   date: string;
   completed: boolean;
+  /** P-04: numeric value logged (e.g. 6 glasses, 25 minutes) */
+  value: number | null;
   note: string | null;
   created_at: string;
 }
@@ -118,5 +128,7 @@ export interface HabitStats {
   bestStreak: number;
   totalCompleted: number;
   completionRate: number;
+  /** P-01: 0–100 EMA-based strength score — decays on misses, slow to reset */
+  strengthScore: number;
   last30Days: { date: string; completed: boolean }[];
 }

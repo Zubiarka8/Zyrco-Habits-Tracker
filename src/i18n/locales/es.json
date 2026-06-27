@@ -40,7 +40,11 @@
     "toastDeleted": "Hábito eliminado",
     "sortDefault": "Predeterminado",
     "sortStreak": "Racha ↓",
-    "sortName": "Nombre A–Z"
+    "sortName": "Nombre A–Z",
+    "perfectDay": "¡Día perfecto!",
+    "habitsCompleted": "hábitos hechos",
+    "timerStart": "Iniciar temporizador",
+    "timerStop": "Parar y registrar tiempo"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -94,7 +98,22 @@
     "archiveConfirm": "¿Archivar este hábito? Puedes desarchivarlo después.",
     "filterAll": "Todos",
     "filterActive": "Activos",
-    "filterArchived": "Archivados"
+    "filterArchived": "Archivados",
+    "session": "Momento del día",
+    "session_morning": "Mañana",
+    "session_afternoon": "Tarde",
+    "session_evening": "Noche",
+    "session_anytime": "Cualquier momento",
+    "completionType": "Tipo de completado",
+    "completionType_binary": "Hecho / No hecho",
+    "completionType_numeric": "Numérico",
+    "completionType_timer": "Temporizador",
+    "completionTarget": "Objetivo",
+    "completionUnit": "Unidad",
+    "browseTemplates": "Ver plantillas",
+    "templates": "Plantillas de hábitos",
+    "templatesSearch": "Buscar plantillas…",
+    "templatesEmpty": "No se encontraron plantillas"
   },
   "todos": {
     "title": "Tareas",
@@ -158,7 +177,12 @@
     "completionsThisMonth": "Completados",
     "rateThisMonth": "Tasa este mes",
     "byCategory": "Por categoría",
-    "habitCount": "{{count}} hábitos"
+    "habitCount": "{{count}} hábitos",
+    "yearOverview": "Resumen anual",
+    "activeDays": "días activos",
+    "perfectDays": "días perfectos",
+    "less": "Menos",
+    "more": "Más"
   },
   "settings": {
     "title": "Ajustes",

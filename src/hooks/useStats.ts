@@ -3,6 +3,26 @@ import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
 import type { Habit, Log, HabitStats } from "../types";
 import { fetchAllLogs, fetchHabits } from "../db/database";
 
+/** EMA-based strength score (0–100). Recent completions weigh more than old ones.
+ *  A 3-day miss after 60 days of consistency drops from ~100 to ~65, not to 0. */
+function calculateStrengthScore(logs: Log[], habitId: string): number {
+  const ALPHA = 0.15;
+  const DAYS = 90;
+  const completedDates = new Set(
+    logs.filter((l) => l.habit_id === habitId && l.completed).map((l) => l.date)
+  );
+  let score = 0;
+  for (let i = 0; i < DAYS; i++) {
+    const date = format(subDays(new Date(), i), "yyyy-MM-dd");
+    if (completedDates.has(date)) {
+      score += ALPHA * Math.pow(1 - ALPHA, i);
+    }
+  }
+  const maxScore = 1 - Math.pow(1 - ALPHA, DAYS);
+  return Math.round((score / maxScore) * 100);
+}
+
+
 function calculateStreak(logs: Log[], habitId: string): { current: number; best: number } {
   const completed = logs
     .filter((l) => l.habit_id === habitId && l.completed)
@@ -102,6 +122,7 @@ export function useStats() {
           : 0;
 
       const { current: streak, best: bestStreak } = calculateStreak(logs, habitId);
+      const strengthScore = calculateStrengthScore(logs, habitId);
 
       return {
         habitId,
@@ -109,6 +130,7 @@ export function useStats() {
         bestStreak,
         totalCompleted,
         completionRate,
+        strengthScore,
         last30Days,
       };
     },
