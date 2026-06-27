@@ -14,6 +14,53 @@ HOY = date.today().strftime("%d/%m/%Y")
 
 UI_GAPS = [
     {
+        "area": "Sin animacion de celebracion al completar todos los habitos",
+        "gravedad": "Alto",
+        "descripcion": (
+            "Cuando el usuario completa todos los habitos del dia, Zyrco muestra un texto 'All done for today!' "
+            "con un emoji estatico 🎉. Todos los competidores relevantes tienen una animacion: "
+            "Loop tiene confetti, Habitica drops gold+XP, Finch hace un 'happy dance' del pajaro, "
+            "(Not Boring) Habits —ganadora del Apple Design Award 2022— tiene una explosion 3D con particulas y haptics. "
+            "Las animaciones de celebracion son el mecanismo de refuerzo positivo mas documentado en retencion de habit trackers. "
+            "Sin esto, completar todos los habitos tiene el mismo feedback visual que completar uno solo."
+        ),
+        "evidencia_codigo": "Today.tsx:1154 — <div className='all-done'><span>🎉</span><p>{t('today.allDone')}</p></div>",
+        "referencia_mercado": "Loop: confetti. Habitica: XP + gold drop + avatar animation. Finch: happy dance. (Not Boring) Habits: 3D particle explosion.",
+        "solucion": "Anadir una animacion CSS de confetti (canvas-confetti, ~3KB) que se dispara cuando done === total && total > 0. Solo en la vista de Hoy, no en el calendario.",
+        "esfuerzo": "Bajo",
+    },
+    {
+        "area": "Three-state tracking (done/skipped/missed) no es visualmente distinto",
+        "gravedad": "Alto",
+        "descripcion": (
+            "Way of Life (app con 4.8* en App Store) popularizo el tracking de tres estados: "
+            "verde = hecho, rojo = fallado, amarillo = saltado. Esta distincion es critica: "
+            "un dia saltado (vacaciones) no debe verse igual que un dia fallado. "
+            "Zyrco tiene el concepto de 'skip' implementado en useSkips, pero en el calendario y en Stats "
+            "no se distingue visualmente de 'missed' — ambos aparecen como celda vacia/gris. "
+            "Los usuarios que saltan dias intencionalmente ven su tasa de completado caer injustamente."
+        ),
+        "evidencia_codigo": "Calendar.tsx: dias saltados y dias sin habitos se renderizan igual (sin chips, sin color). AnnualHeatmap: sin distincion skipped vs missed.",
+        "referencia_mercado": "Way of Life: verde/rojo/amarillo con configuracion de 'skip day' por habito. Loop: skip = celda punteada, diferente a missed = celda vacia.",
+        "solucion": "En Calendar y AnnualHeatmap, mostrar los dias con skips con un patron diferente (celda rayada o color amarillo suave). Requiere pasar rangeSkips al Calendar page.",
+        "esfuerzo": "Medio",
+    },
+    {
+        "area": "Long-press en filas de habitos no hace nada",
+        "gravedad": "Medio",
+        "descripcion": (
+            "En Streaks (Apple Design Award), el gesto principal para completar un habito es un long-press. "
+            "En HabitNow y Strides, el long-press abre un menu contextual rapido. "
+            "En Zyrco, un long-press en cualquier fila de habito no hace absolutamente nada. "
+            "El acceso al menu de opciones requiere encontrar el boton ··· de 16px de ancho, "
+            "que es un objetivo de toque muy pequeyo en mobile."
+        ),
+        "evidencia_codigo": "HabitList en Today.tsx: el div de cada habit-row no tiene onContextMenu, onLongPress ni similar.",
+        "referencia_mercado": "Streaks: long-press = completar. HabitNow: long-press = menu. Strides: long-press = undo log.",
+        "solucion": "En habit-row, implementar onPointerDown con un setTimeout de 400ms que abre el dropdown menu. Si el usuario hace click corto, hace toggle normal.",
+        "esfuerzo": "Bajo",
+    },
+    {
         "area": "Habit cards no son clicables como navegacion",
         "gravedad": "Alto",
         "descripcion": (
@@ -150,6 +197,20 @@ UI_GAPS = [
 ]
 
 UX_GAPS = [
+    {
+        "patron": "Haptic feedback al completar un habito",
+        "gravedad": "Alto",
+        "descripcion": (
+            "Streaks cita explicitamente el 'haptic buzz on habit completion' como mecanismo de retencion. "
+            "(Not Boring) Habits describe 'zingy haptics' como elemento central de su diseno. "
+            "En Tauri mobile, el Web API navigator.vibrate() esta disponible sin plugins adicionales. "
+            "El feedback haptico activa la misma respuesta de refuerzo positivo que el sonido "
+            "pero sin molestar en entornos silenciosos. Es el micro-momento mas barato de implementar."
+        ),
+        "referencia_mercado": "Streaks: haptic en cada completion. (Not Boring) Habits: haptic + sonido. Finch: vibration en el 'happy dance'.",
+        "solucion_corta": "En handleToggle de Today.tsx, tras confirmar el toggle a completed=true: if (navigator.vibrate) navigator.vibrate(50). Cero dependencias.",
+        "esfuerzo": "Bajo",
+    },
     {
         "patron": "Swipe para completar (swipe-to-check)",
         "gravedad": "Alto",
@@ -508,6 +569,161 @@ FEATURES_FALTANTES = [
         "solucion_minima": "Columna INTEGER sort_order en habits (ALTER TABLE migration). Drag & drop en Habits.tsx con @dnd-kit. Actualizar al soltar.",
         "esfuerzo": "Medio",
     },
+    {
+        "feature": "Pantalla de retrospectiva mensual automatica",
+        "impacto": "Medio",
+        "descripcion": (
+            "Al final de cada mes, ninguna app genera automaticamente un resumen: 'En junio completaste "
+            "el 78% de tus habitos, tu mejor semana fue la del 10, tu habito mas constante fue Meditar. "
+            "El primero de cada mes aparece en la app y es una oportunidad de retention muy documentada. "
+            "Ordly hace un resumen semanal; ninguna app hace un resumen mensual formal con datos propios."
+        ),
+        "quien_lo_tiene": "Nadie lo tiene bien — es una OPORTUNIDAD DIFERENCIAL.",
+        "solucion_minima": "Al abrir la app el dia 1 de cada mes, mostrar un modal con: tasa del mes anterior, mejor habito, peor habito, racha maxima alcanzada. Datos ya disponibles en useStats.",
+        "esfuerzo": "Medio",
+    },
+    {
+        "feature": "strengthScore EMA no se visualiza en el tiempo",
+        "impacto": "Medio",
+        "descripcion": (
+            "useStats.ts ya calcula un strengthScore (0-100, exponential moving average). "
+            "Es exactamente el 'habit strength score' que Loop tiene y que recibe los mayores elogios en sus resenas. "
+            "En Zyrco solo se muestra como una barra inline horizontal en la lista de habitos de Today. "
+            "Loop lo muestra como un numero prominente y como una grafica de tendencia. "
+            "El dato existe pero no se comunica su valor al usuario."
+        ),
+        "quien_lo_tiene": "Loop Habit Tracker (el estandar de referencia, gratuito).",
+        "solucion_minima": "En HabitDetail, mostrar el strengthScore con un numero grande (ej. '73 / 100') y una mini grafica de como ha evolucionado en los ultimos 30 dias.",
+        "esfuerzo": "Medio",
+    },
+    {
+        "feature": "Recordatorios basados en ubicacion",
+        "impacto": "Bajo",
+        "descripcion": (
+            "Productive (premium) tiene 'location-based reminders': el habito 'Ir al gimnasio' "
+            "se dispara cuando el usuario llega al gimnasio. Es la notificacion mas efectiva porque "
+            "no depende de la hora sino del contexto. Alto valor para habitos ligados a lugares: "
+            "gimnasio, oficina, supermercado, casa de un familiar."
+        ),
+        "quien_lo_tiene": "Productive (unico en el mercado de habit trackers).",
+        "solucion_minima": "Requiere Tauri plugin de geolocation y acceso a GPS en background. Complejo. Alternativa: usar Wi-Fi SSID como proxy de ubicacion.",
+        "esfuerzo": "Alto",
+    },
+]
+
+TENDENCIAS_EMERGENTES = [
+    {
+        "tendencia": "Anti-streak philosophy (no castigar los dias perdidos)",
+        "descripcion": (
+            "(Not Boring) Habits (Apple Design Award 2022) elimino las rachas completamente. "
+            "En su lugar: 66 repeticiones totales hacia el objetivo (basado en el estudio de Phillippa Lally "
+            "sobre los 66 dias para formar un habito). No hay racha que perder. No hay culpa. "
+            "Ordly (2025) y varios proyectos indie siguen la misma filosofia. "
+            "Loop Habit Tracker usa EWMA (Exponential Weighted Moving Average): la puntuacion decae "
+            "lentamente cuando fallas en vez de resetearse a cero. Recibe los mayores elogios en resenas. "
+            "El mercado se esta moviendo de 'streak = motivacion' a 'no hagas que el usuario se sienta culpable'."
+        ),
+        "relevancia_zyrco": (
+            "Zyrco tiene grace days (correcto) pero el mensaje es 'Racha de X dias'. "
+            "El strengthScore EMA ya esta implementado internamente pero no se comunica. "
+            "Oportunidad: destacar el strengthScore como el 'modo no-culpable' de medir habitos."
+        ),
+    },
+    {
+        "tendencia": "Celebraciones como mecanismo principal de retencion",
+        "descripcion": (
+            "El mercado ha convergido en que el momento de completar el habito es el momento mas critico "
+            "para la retencion. (Not Boring) Habits tiene una explosion 3D con sonido y haptics. "
+            "Finch tiene animacion del pajaro. Habitica tiene drops de oro. Loop tiene confetti. "
+            "El usuario necesita un momento memorable al completar — no solo un checkmark."
+        ),
+        "relevancia_zyrco": "Zyrco muestra texto y un emoji estatico. Gap critico de bajo esfuerzo.",
+    },
+    {
+        "tendencia": "Apps de habitos para TDAH y neurodiverencia",
+        "descripcion": (
+            "Routinery presenta cada tarea una a la vez con voz TTS que dice el nombre del siguiente paso. "
+            "Focus Habits integra con el Modo Foco del sistema (iOS/Android). "
+            "Es un mercado desatendido con alta disposicion a pagar y comunidades activas en Reddit."
+        ),
+        "relevancia_zyrco": "El modo foco (un habito a la vez) es simple de implementar y abriria este segmento.",
+    },
+    {
+        "tendencia": "Habitos basados en identidad, no en comportamiento",
+        "descripcion": (
+            "James Clear ('Atomic Habits'): 'No quiero correr, soy un corredor'. "
+            "Finch lo gamifica con el crecimiento del pajaro como metafora del yo. "
+            "Fabulous usa un 'viaje del heroe' narrativo. "
+            "El tipo de habito 'good/bad/neutral' de Zyrco apunta en esta direccion pero no tiene narrativa."
+        ),
+        "relevancia_zyrco": "Oportunidad de copy: en el onboarding, preguntar 'Quien quieres ser?' en vez de '¿Que habito quieres crear?'.",
+    },
+]
+
+ACCESIBILIDAD_GAPS = [
+    {
+        "gap": "Botones de icono sin aria-label descriptivo",
+        "gravedad": "Alto",
+        "descripcion": (
+            "Los botones de solo icono en Today.tsx usan aria-label genericos o los del componente padre. "
+            "El boton ··· del menu dice aria-label={t('habits.edit')} — pero en realidad abre un menu, no edita. "
+            "El lector de pantalla anunciaria 'Editar, boton' cuando el usuario toca el (···), que es incorrecto."
+        ),
+        "evidencia_codigo": "Today.tsx:342 — <button ... aria-label={t('habits.edit')}> para el menu-btn.",
+        "solucion": "aria-label='More options for {habit.name}' en el menu-btn. aria-label={t('today.checkGood')} o t('today.checkBad') en check-btn segun el tipo de habito.",
+        "esfuerzo": "Bajo",
+    },
+    {
+        "gap": "cal-chip (emojis en calendario) solo tiene title, no aria-label",
+        "gravedad": "Medio",
+        "descripcion": (
+            "Los chips de emoji en Calendar.tsx usan title={h.name} para el tooltip. "
+            "En lectores de pantalla (VoiceOver/TalkBack), title no se lee correctamente en elementos span. "
+            "El lector leeria el nombre del emoji unicode ('Flexed Biceps' para 💪) en lugar del nombre del habito."
+        ),
+        "evidencia_codigo": "Calendar.tsx:349 — <span ... title={h.name}>{h.icon}</span> — sin aria-label ni role.",
+        "solucion": "Cambiar a <span ... aria-label={h.name} role='img'>. O cambiar el span a un button si se quiere que sea interactivo.",
+        "esfuerzo": "Bajo",
+    },
+    {
+        "gap": "Contraste de color no auditado en modo oscuro",
+        "gravedad": "Medio",
+        "descripcion": (
+            "Las CSS custom properties (--color-muted, --color-border, --color-text) en dark mode "
+            "no han sido auditadas contra WCAG 2.2 AA (4.5:1 para texto normal, 3:1 para texto grande). "
+            "Elementos como .habit-desc, .category-badge text, .cal-day-wd, .per-habit-rate "
+            "usan colores muted que pueden estar bajo el ratio minimo en dark mode."
+        ),
+        "evidencia_codigo": "index.css — dark mode vars no tienen evidencia de audit de contraste.",
+        "solucion": "Ejecutar las paletas de colores en dark mode contra un verificador WCAG (Colour Contrast Analyser o axe DevTools). Ajustar los valores de --color-muted y --color-border.",
+        "esfuerzo": "Bajo",
+    },
+    {
+        "gap": "Teclado: el menu contextual no es accesible con teclado",
+        "gravedad": "Medio",
+        "descripcion": (
+            "El dropdown-menu que aparece al pulsar ··· no es un <menu> semantico ni tiene "
+            "role='menu' con role='menuitem' en sus items. No tiene focus trap: al abrirse, "
+            "el foco no va al primer item. Escape no lo cierra. Arrow keys no navegan entre opciones. "
+            "En una app de desktop (Tauri) esto es especialmente importante."
+        ),
+        "evidencia_codigo": "Today.tsx:1339 — <div className='dropdown-menu dropdown-menu--fixed'> sin role, sin focus management.",
+        "solucion": "Anadir role='menu' al contenedor, role='menuitem' a cada button, useEffect con focus al primer item al abrir, y keydown handler para Escape + Arrow keys.",
+        "esfuerzo": "Medio",
+    },
+    {
+        "gap": "Dynamic type / escalado de fuente no probado",
+        "gravedad": "Bajo",
+        "descripcion": (
+            "Ninguna referencia al escalado de fuente del sistema en el codigo. "
+            "Las fuentes usan valores px fijos (font-size: 13px, 11px, etc.) que no respetan "
+            "el escalado de accesibilidad del sistema operativo. "
+            "En Windows, el 200% de escala de texto es comun entre usuarios con baja vision."
+        ),
+        "evidencia_codigo": "index.css — font-size en px en lugar de rem referenciados a :root font-size.",
+        "solucion": "Convertir los font-size criticos de px a rem. Asegurar que los breakpoints de layout se mantienen con texto grande.",
+        "esfuerzo": "Medio",
+    },
 ]
 
 OFFLINE_ANALISIS = {
@@ -537,10 +753,12 @@ OFFLINE_ANALISIS = {
         },
     ],
     "oportunidad_marketing": (
-        "Privacy-first local-first es un diferencial REAL y comunicable. "
-        "Ningun competidor principal (Habitica, Finch, Fabulous) ofrece esto. "
-        "Hay un segmento creciente de usuarios que no quiere sus datos de salud en la nube. "
-        "El copy en la tienda deberia ser: 'Sin cuenta. Sin servidores. Tus habitos, en tu dispositivo.'"
+        "Loop Habit Tracker usa 'your data never leaves your phone' como pitch principal y tiene 5M+ descargas. "
+        "Loop es gratis y open source. Zyrco puede tomar ese mismo posicionamiento pero con UI premium y desktop-first. "
+        "En el segmento premium, NADIE comunica local-first como valor de marca. "
+        "El copy en la tienda deberia ser: 'Sin cuenta. Sin servidores. Tus habitos, en tu dispositivo.' "
+        "Esto diferencia de Habitica, Finch y Fabulous (todos requieren cuenta) y de Loop (UI datada). "
+        "Es el angulo de marketing mas honesto, diferencial y sostenible para Zyrco."
     ),
 }
 
@@ -558,31 +776,46 @@ SCORECARD = [
 ]
 
 ROADMAP = [
+    # P0 — criticos: cosas rotas o que generan expectativas falsas
     ("P0 — CRITICO",   "Conectar scheduling de notificaciones en Rust (useReminders + Tauri plugin)", "Critico", "Medio"),
     ("P0 — CRITICO",   "Ocultar campo 'Recordatorio' en HabitForm hasta que notificaciones funcionen", "Critico", "Bajo"),
     ("P0 — CRITICO",   "Timer: persistir startedAt en localStorage para sobrevivir navegacion", "Critico", "Bajo"),
+    # P1 — alto impacto, bajo esfuerzo (quick wins)
+    ("P1 — ALTO",      "Animacion de confetti al completar todos los habitos del dia (canvas-confetti)", "Alto", "Bajo"),
+    ("P1 — ALTO",      "Haptic feedback al completar un habito (navigator.vibrate(50))", "Alto", "Bajo"),
+    ("P1 — ALTO",      "aria-label descriptivos en check-btn y menu-btn de Today", "Alto", "Bajo"),
     ("P1 — ALTO",      "Hacer tarjetas de Habits.tsx clicables (navegar a /habits/:id)", "Alto", "Bajo"),
-    ("P1 — ALTO",      "Undo toast tras completar habito (4 segundos, usar ToastContext)", "Alto", "Bajo"),
+    ("P1 — ALTO",      "Undo toast tras completar habito (4 segundos, ToastContext)", "Alto", "Bajo"),
     ("P1 — ALTO",      "Backup automatico semanal del .db a carpeta local (Rust)", "Alto", "Bajo"),
-    ("P1 — ALTO",      "Busqueda de habitos en Habits.tsx (filtro en cliente)", "Alto", "Bajo"),
-    ("P1 — ALTO",      "Timer: mostrar objetivo (X min) durante la sesion activa", "Alto", "Bajo"),
-    ("P1 — ALTO",      "Acceso a HabitDetail desde el menu contextual de Today", "Alto", "Bajo"),
-    ("P2 — MEDIO",     "Swipe-to-check en filas de habitos (touch gesture detection)", "Medio", "Medio"),
+    ("P1 — ALTO",      "Busqueda de habitos en Habits.tsx (filtro en cliente, useMemo)", "Alto", "Bajo"),
+    ("P1 — ALTO",      "Timer: mostrar objetivo (X min) y arco de progreso durante la sesion", "Alto", "Bajo"),
+    ("P1 — ALTO",      "Acceso a HabitDetail desde menu contextual de Today (nadie sabe que existe)", "Alto", "Bajo"),
+    ("P1 — ALTO",      "Long-press en habit-row como atajo al menu contextual", "Alto", "Bajo"),
+    # P2 — medio impacto o medio esfuerzo
+    ("P2 — MEDIO",     "strengthScore visualizado en HabitDetail (numero + mini-grafica 30d)", "Medio", "Medio"),
+    ("P2 — MEDIO",     "Swipe-to-check en filas de habitos (onPointerDown gesture)", "Medio", "Medio"),
+    ("P2 — MEDIO",     "role='menu' + focus trap + Escape en el dropdown contextual", "Medio", "Bajo"),
     ("P2 — MEDIO",     "Clamp del menu contextual para que no salga del viewport", "Medio", "Bajo"),
     ("P2 — MEDIO",     "Reemplazar <select> de ordenacion por chips del design system", "Medio", "Bajo"),
-    ("P2 — MEDIO",     "Check-in de animo diario (5 emojis en Today)", "Medio", "Bajo"),
-    ("P2 — MEDIO",     "Vacation mode: pausar todos los habitos hasta una fecha", "Medio", "Bajo"),
-    ("P2 — MEDIO",     "Date picker personalizado en el modal de Pausa", "Medio", "Bajo"),
-    ("P2 — MEDIO",     "Linea de tendencia 30d y mejor dia de semana en HabitDetail", "Medio", "Medio"),
-    ("P2 — MEDIO",     "Nota del dia libre en Today (daily journal)", "Medio", "Bajo"),
-    ("P2 — MEDIO",     "Orden personalizado de habitos (sort_order + drag & drop)", "Medio", "Medio"),
-    ("P3 — BAJO",      "Modo foco: mostrar un habito a la vez", "Bajo", "Medio"),
-    ("P3 — BAJO",      "Chevrons de DoneSection/SessionGroup con iconos Lucide", "Bajo", "Bajo"),
+    ("P2 — MEDIO",     "Check-in de animo diario (5 emojis en Today, tabla moods)", "Medio", "Bajo"),
+    ("P2 — MEDIO",     "Vacation mode global: pausar todos los habitos hasta una fecha", "Medio", "Bajo"),
+    ("P2 — MEDIO",     "Date picker personalizado en el modal de Pausa (en vez de 3/7/14/30)", "Medio", "Bajo"),
+    ("P2 — MEDIO",     "Three-state visual (done/skipped/missed) en Calendar y AnnualHeatmap", "Medio", "Medio"),
+    ("P2 — MEDIO",     "Linea de tendencia 30d y mejor/peor dia de semana en HabitDetail", "Medio", "Medio"),
+    ("P2 — MEDIO",     "Nota del dia libre en Today (daily journal, tabla daily_notes)", "Medio", "Bajo"),
+    ("P2 — MEDIO",     "Orden personalizado de habitos (sort_order + drag & drop con @dnd-kit)", "Medio", "Medio"),
+    ("P2 — MEDIO",     "Pantalla de retrospectiva mensual automatica (el dia 1 de cada mes)", "Medio", "Medio"),
+    ("P2 — MEDIO",     "font-size en rem para respetar escalado de accesibilidad del SO", "Medio", "Medio"),
+    # P3 — bajo impacto o alto esfuerzo
+    ("P3 — BAJO",      "Modo foco: mostrar un habito a la vez con navegacion next/prev", "Bajo", "Medio"),
+    ("P3 — BAJO",      "Chevrons de DoneSection/SessionGroup con iconos Lucide (ChevronUp/Down)", "Bajo", "Bajo"),
     ("P3 — BAJO",      "Empty states con SVG ilustracion en Habits y Today", "Bajo", "Medio"),
-    ("P3 — BAJO",      "Keyboard shortcuts en desktop (N, Escape, /)", "Bajo", "Bajo"),
+    ("P3 — BAJO",      "Keyboard shortcuts en desktop (N = nuevo, Escape = cerrar, / = buscar)", "Bajo", "Bajo"),
     ("P3 — BAJO",      "Preview de conflictos en Import antes de ejecutar", "Bajo", "Medio"),
     ("P3 — BAJO",      "Streak shield: comodin por habito con recarga configurable", "Bajo", "Medio"),
-    ("P3 — BAJO",      "Habito stacking: encadenar un habito despues de otro", "Bajo", "Medio"),
+    ("P3 — BAJO",      "Habito stacking: encadenar un habito despues de completar otro", "Bajo", "Medio"),
+    ("P3 — BAJO",      "cal-chip con aria-label={h.name} + role='img' en Calendar", "Bajo", "Bajo"),
+    ("P3 — BAJO",      "Retro log ampliado a 365 dias (eliminar limite arbitrario de 30)", "Bajo", "Bajo"),
 ]
 
 
@@ -613,13 +846,15 @@ def generar() -> str:
 
     # ── INDICE ───────────────────────────────────────────────
     h(2, "Indice")
-    p("1. [Problemas de UI (10 issues)](#ui)")
-    p("2. [Problemas de UX / interaccion (9 issues)](#ux)")
-    p("3. [Features mal implementadas (8 issues)](#mal-implementadas)")
-    p("4. [Features faltantes con validacion de mercado (10 items)](#faltantes)")
+    p(f"1. [Problemas de UI ({len(UI_GAPS)} issues)](#ui)")
+    p(f"2. [Problemas de UX / interaccion ({len(UX_GAPS)} issues)](#ux)")
+    p(f"3. [Features mal implementadas ({len(FEATURES_MAL_IMPLEMENTADAS)} issues)](#mal-implementadas)")
+    p(f"4. [Features faltantes con validacion de mercado ({len(FEATURES_FALTANTES)} items)](#faltantes)")
     p("5. [Capacidad offline — fortaleza y brechas](#offline)")
-    p("6. [Scorecard vs competidores](#scorecard)")
-    p("7. [Roadmap priorizado](#roadmap)")
+    p(f"6. [Tendencias emergentes del mercado ({len(TENDENCIAS_EMERGENTES)} tendencias)](#tendencias)")
+    p(f"7. [Accesibilidad ({len(ACCESIBILIDAD_GAPS)} gaps)](#accesibilidad)")
+    p("8. [Scorecard vs competidores](#scorecard)")
+    p("9. [Roadmap priorizado](#roadmap)")
     sep()
 
     # ── 1. UI GAPS ───────────────────────────────────────────
@@ -718,8 +953,42 @@ def generar() -> str:
     L.append("\n")
     sep()
 
-    # ── 6. SCORECARD ─────────────────────────────────────────
-    h(2, "6. Scorecard vs competidores (0–10)")
+    # ── 6. TENDENCIAS ────────────────────────────────────────
+    h(2, "6. Tendencias emergentes del mercado")
+    bl(
+        "Movimientos estructurales en el mercado de habit trackers (2024-2026). "
+        "Algunos validan decisiones ya tomadas en Zyrco; otros son oportunidades sin explotar."
+    )
+    L.append("\n")
+
+    for i, item in enumerate(TENDENCIAS_EMERGENTES, 1):
+        h(3, f"T-{i:02d}: {item['tendencia']}")
+        p(item["descripcion"])
+        p(f"**Relevancia para Zyrco:** {item['relevancia_zyrco']}")
+        L.append("\n")
+    sep()
+
+    # ── 7. ACCESIBILIDAD ─────────────────────────────────────
+    h(2, "7. Accesibilidad")
+    bl(
+        "Gaps de accesibilidad encontrados directamente en el codigo. "
+        "La mayoria son de bajo esfuerzo. Una app de desktop tiene mayor exigencia de accesibilidad "
+        "que una de movil porque los usuarios de desktop esperan navegacion por teclado completa."
+    )
+    L.append("\n")
+
+    for i, item in enumerate(ACCESIBILIDAD_GAPS, 1):
+        h(3, f"A11Y-{i:02d}: {item['gap']}")
+        L.append(f"**Gravedad:** {gravedad_icon(item['gravedad'])} {item['gravedad']}\n\n")
+        p(item["descripcion"])
+        if "evidencia_codigo" in item:
+            L.append(f"**Codigo:** `{item['evidencia_codigo']}`\n\n")
+        p(f"**Solucion:** {item['solucion']}")
+        L.append(f"**Esfuerzo:** {esfuerzo_icon(item['esfuerzo'])} {item['esfuerzo']}\n\n")
+    sep()
+
+    # ── 8. SCORECARD ─────────────────────────────────────────
+    h(2, "8. Scorecard vs competidores (0–10)")
     p("Evaluacion cualitativa basada en codigo real + uso directo de cada app.")
     L.append("\n")
 
@@ -755,8 +1024,8 @@ def generar() -> str:
     )
     sep()
 
-    # ── 7. ROADMAP ───────────────────────────────────────────
-    h(2, "7. Roadmap priorizado por impacto/esfuerzo")
+    # ── 9. ROADMAP ───────────────────────────────────────────
+    h(2, "9. Roadmap priorizado por impacto/esfuerzo")
 
     L.append("| Prioridad | Tarea | Impacto | Esfuerzo |\n")
     L.append("|-----------|-------|---------|----------|\n")
