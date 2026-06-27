@@ -2885,6 +2885,56 @@ a { text-decoration: none; color: inherit; }
   50% { opacity: 0.7; }
 }
 
+/* Countdown variant — fills from left as time elapses */
+.timer-stop-btn--countdown {
+  border-color: var(--color-accent, var(--color-primary));
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-accent, var(--color-primary)) 25%, transparent) var(--timer-pct, 0%),
+    transparent var(--timer-pct, 0%)
+  );
+  color: var(--color-accent, var(--color-primary));
+}
+.timer-stop-btn--urgent {
+  border-color: var(--color-danger);
+  background: #ef444422;
+  color: var(--color-danger);
+  animation: timer-pulse 0.6s infinite;
+}
+.timer-elapsed--countdown { font-size: 15px; font-weight: 700; }
+
+/* Mode selector (shown when timer is idle and target is set) */
+.timer-mode-btns {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.timer-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: 16px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.timer-mode-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+.timer-mode-btn--countdown:hover {
+  border-color: var(--color-accent, var(--color-primary));
+  color: var(--color-accent, var(--color-primary));
+  background: color-mix(in srgb, var(--color-accent, var(--color-primary)) 12%, transparent);
+}
+
 /* ── P-05: Template Library ────────────────────────────── */
 .template-trigger-btn {
   display: inline-flex;

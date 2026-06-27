@@ -86,6 +86,8 @@ function NumericInput({
 
 // ── TimerButton ───────────────────────────────────────────
 
+type TimerMode = "stopwatch" | "countdown";
+
 function TimerButton({
   completed,
   activeTimer,
@@ -94,22 +96,40 @@ function TimerButton({
   onStop,
 }: {
   completed: boolean;
-  activeTimer: { startedAt: Date } | null;
+  activeTimer: { startedAt: Date; mode: TimerMode } | null;
   target?: number | null;
-  onStart: () => void;
+  onStart: (mode: TimerMode) => void;
   onStop: () => void;
 }) {
   const { t } = useTranslation();
   const [elapsed, setElapsed] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Prevent double-calling onStop when countdown auto-completes
+  const autoFiredRef = useRef(false);
+
+  const mode = activeTimer?.mode ?? "stopwatch";
+  const targetSecs = (target ?? 0) * 60;
 
   useEffect(() => {
-    if (!activeTimer) { setElapsed(0); return; }
+    if (!activeTimer) {
+      setElapsed(0);
+      autoFiredRef.current = false;
+      return;
+    }
     const tick = () => setElapsed(Math.floor((Date.now() - activeTimer.startedAt.getTime()) / 1000));
     tick();
     intervalRef.current = setInterval(tick, 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [activeTimer]);
+
+  // Auto-complete when countdown finishes
+  useEffect(() => {
+    if (activeTimer && mode === "countdown" && targetSecs > 0 && elapsed >= targetSecs && !autoFiredRef.current) {
+      autoFiredRef.current = true;
+      if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+      onStop();
+    }
+  }, [elapsed, mode, targetSecs, activeTimer, onStop]);
 
   if (completed) {
     return (
@@ -120,6 +140,25 @@ function TimerButton({
   }
 
   if (activeTimer) {
+    if (mode === "countdown" && targetSecs > 0) {
+      const remaining = Math.max(0, targetSecs - elapsed);
+      const mm = Math.floor(remaining / 60).toString().padStart(2, "0");
+      const ss = (remaining % 60).toString().padStart(2, "0");
+      const pct = Math.min(100, (elapsed / targetSecs) * 100);
+      const urgent = remaining <= 30;
+      return (
+        <button
+          className={`timer-stop-btn timer-stop-btn--countdown ${urgent ? "timer-stop-btn--urgent" : ""}`}
+          onClick={onStop}
+          title={t("today.timerStop")}
+          style={{ "--timer-pct": `${pct}%` } as React.CSSProperties}
+        >
+          <Square size={14} />
+          <span className="timer-elapsed timer-elapsed--countdown">{mm}:{ss}</span>
+        </button>
+      );
+    }
+    // Stopwatch
     const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
     const ss = (elapsed % 60).toString().padStart(2, "0");
     return (
@@ -133,10 +172,33 @@ function TimerButton({
     );
   }
 
+  // Idle — show mode selector when target is set, simple start otherwise
+  if (target) {
+    return (
+      <div className="timer-mode-btns">
+        <button
+          className="timer-mode-btn"
+          onClick={() => onStart("stopwatch")}
+          title={t("today.timerStopwatch")}
+        >
+          <Play size={13} />
+          <span>{t("today.timerStopwatch")}</span>
+        </button>
+        <button
+          className="timer-mode-btn timer-mode-btn--countdown"
+          onClick={() => onStart("countdown")}
+          title={t("today.timerCountdown")}
+        >
+          <Timer size={13} />
+          <span>{target}m</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <button className="timer-start-btn" onClick={onStart} title={t("today.timerStart")}>
+    <button className="timer-start-btn" onClick={() => onStart("stopwatch")} title={t("today.timerStart")}>
       <Play size={16} />
-      {target ? <span className="timer-target-label">{target}m</span> : null}
     </button>
   );
 }
@@ -173,8 +235,8 @@ function HabitList({
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
   onLongPress?: (habit: Habit, pos: { x: number; y: number }) => void;
   isToday?: boolean;
-  activeTimers?: Map<string, { startedAt: Date }>;
-  onTimerStart?: (habitId: string) => void;
+  activeTimers?: Map<string, { startedAt: Date; mode: TimerMode }>;
+  onTimerStart?: (habitId: string, mode: TimerMode) => void;
   onTimerStop?: (habitId: string, elapsedMinutes: number) => void;
   compact?: boolean;
   highlightHabitId?: string | null;
@@ -243,7 +305,7 @@ function HabitList({
                 completed={completed}
                 activeTimer={activeTimer}
                 target={habit.completion_target}
-                onStart={() => onTimerStart?.(habit.id)}
+                onStart={(mode) => onTimerStart?.(habit.id, mode)}
                 onStop={() => {
                   if (activeTimer) {
                     if ("vibrate" in navigator) navigator.vibrate(50);
@@ -830,40 +892,41 @@ export function Today() {
   }, [highlightHabitId]);
 
   // ── Active timers (P-04) ──────────────────────────────────
-  const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date }>>(new Map());
+  const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date; mode: TimerMode }>>(new Map());
 
   // Restore any in-progress timers from localStorage on mount (survive navigation)
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem("zyrco-timers") ?? "{}") as Record<
         string,
-        { startedAt: string; date: string }
+        { startedAt: string; date: string; mode?: TimerMode }
       >;
-      const restored = new Map<string, { startedAt: Date }>();
+      const restored = new Map<string, { startedAt: Date; mode: TimerMode }>();
       for (const [id, data] of Object.entries(stored)) {
         if (data.date === format(new Date(), "yyyy-MM-dd")) {
-          restored.set(id, { startedAt: new Date(data.startedAt) });
+          restored.set(id, { startedAt: new Date(data.startedAt), mode: data.mode ?? "stopwatch" });
         }
       }
       if (restored.size > 0) setActiveTimers(restored);
     } catch { /* corrupt entry — ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleTimerStart = useCallback((habitId: string) => {
+  const handleTimerStart = useCallback((habitId: string, mode: TimerMode) => {
     const startedAt = new Date();
     setActiveTimers((prev) => {
       const next = new Map(prev);
-      next.set(habitId, { startedAt });
+      next.set(habitId, { startedAt, mode });
       return next;
     });
     try {
       const stored = JSON.parse(localStorage.getItem("zyrco-timers") ?? "{}") as Record<string, unknown>;
-      stored[habitId] = { startedAt: startedAt.toISOString(), date: format(startedAt, "yyyy-MM-dd") };
+      stored[habitId] = { startedAt: startedAt.toISOString(), date: format(startedAt, "yyyy-MM-dd"), mode };
       localStorage.setItem("zyrco-timers", JSON.stringify(stored));
     } catch { /* storage unavailable */ }
   }, []);
 
   const handleTimerStop = useCallback(async (habitId: string, elapsedMinutes: number) => {
+    const timerEntry = activeTimers.get(habitId);
     setActiveTimers((prev) => {
       const next = new Map(prev);
       next.delete(habitId);
@@ -874,10 +937,16 @@ export function Today() {
       delete stored[habitId];
       localStorage.setItem("zyrco-timers", JSON.stringify(stored));
     } catch { /* storage unavailable */ }
-    const log = logs.find((l) => l.habit_id === habitId);
+    // Show celebratory message when countdown target is met
+    if (timerEntry?.mode === "countdown") {
+      const habit = habits.find((h) => h.id === habitId);
+      if (habit?.completion_target && elapsedMinutes >= habit.completion_target) {
+        showToast(`🎯 ${habit.icon} ${habit.name} — ${t("today.timerDone")}`, "success");
+        if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
+      }
+    }
     await toggle(habitId, false, elapsedMinutes);
-    void log;
-  }, [logs, toggle]);
+  }, [activeTimers, habits, toggle, showToast, t]);
 
   // Wraps toggle with haptic-free undo toast (haptic fires inside HabitList.handleToggle)
   const toggleWithUndo = useCallback(

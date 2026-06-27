@@ -6,55 +6,94 @@ import { exportAllData, importData, type ExportData } from "../db/database";
 // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Export JSON básico → todos los planes.
 // [FUTURO - PREMIUM MENSUAL + ANUAL + LIFETIME] Export CSV / PDF → solo premium.
 // Cuando MONETIZATION_ACTIVE = true: mostrar PremiumGate wrapping el botón CSV/PDF.
+
+type Status =
+  | { type: "idle" }
+  | { type: "success"; msg: string }
+  | { type: "error"; msg: string };
+
+/** Save content using the native file-save dialog (File System Access API).
+ *  Falls back to anchor.download if the API is unavailable. */
+async function saveFile(filename: string, content: string, mimeType: string): Promise<"saved" | "cancelled" | "fallback"> {
+  if ("showSaveFilePicker" in window) {
+    try {
+      const ext = filename.split(".").pop() ?? "json";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: mimeType, accept: { [mimeType]: [`.${ext}`] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      return "saved";
+    } catch (err: unknown) {
+      if ((err as { name?: string })?.name === "AbortError") return "cancelled";
+      // API error → fall through to anchor
+    }
+  }
+  // Fallback: browser chooses Downloads folder, no dialog
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return "fallback";
+}
+
 export function ImportExport() {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<
-    | { type: "idle" }
-    | { type: "success"; msg: string }
-    | { type: "error"; msg: string }
-  >({ type: "idle" });
+  const [status, setStatus] = useState<Status>({ type: "idle" });
+
+  const flash = (s: Status) => {
+    setStatus(s);
+    setTimeout(() => setStatus({ type: "idle" }), 5000);
+  };
 
   const handleExport = async () => {
-    const data = await exportAllData();
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const date = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `zyrco-backup-${date}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const data = await exportAllData();
+      const json = JSON.stringify(data, null, 2);
+      const date = new Date().toISOString().slice(0, 10);
+      const result = await saveFile(`zyrco-backup-${date}.json`, json, "application/json");
+      if (result !== "cancelled") flash({ type: "success", msg: t("settings.exportSuccess") });
+    } catch (err) {
+      console.error("[Export] JSON export failed:", err);
+      flash({ type: "error", msg: t("settings.exportError") });
+    }
   };
 
   const handleExportCsv = async () => {
-    const data = await exportAllData();
-    const habitMap = new Map(data.habits.map((h) => [h.id, h]));
-    const catMap = new Map(data.categories.map((c) => [c.id, c]));
-    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    const header = "date,habit,category,completed,value,note\n";
-    const rows = data.logs
-      .map((l) => {
-        const habit = habitMap.get(l.habit_id);
-        const cat = habit?.category_id ? catMap.get(habit.category_id) : undefined;
-        return [
-          l.date,
-          esc(habit?.name ?? ""),
-          esc(cat?.name ?? ""),
-          l.completed ? "1" : "0",
-          l.value ?? "",
-          esc(l.note ?? ""),
-        ].join(",");
-      })
-      .join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `zyrco-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      const data = await exportAllData();
+      const habitMap = new Map(data.habits.map((h) => [h.id, h]));
+      const catMap = new Map(data.categories.map((c) => [c.id, c]));
+      const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+      const header = "date,habit,category,completed,value,note\n";
+      const rows = data.logs
+        .map((l) => {
+          const habit = habitMap.get(l.habit_id);
+          const cat = habit?.category_id ? catMap.get(habit.category_id) : undefined;
+          return [
+            l.date,
+            esc(habit?.name ?? ""),
+            esc(cat?.name ?? ""),
+            l.completed ? "1" : "0",
+            l.value ?? "",
+            esc(l.note ?? ""),
+          ].join(",");
+        })
+        .join("\n");
+      const date = new Date().toISOString().slice(0, 10);
+      const result = await saveFile(`zyrco-${date}.csv`, header + rows, "text/csv;charset=utf-8;");
+      if (result !== "cancelled") flash({ type: "success", msg: t("settings.exportCsvSuccess") });
+    } catch (err) {
+      console.error("[Export] CSV export failed:", err);
+      flash({ type: "error", msg: t("settings.exportError") });
+    }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +110,7 @@ export function ImportExport() {
       }
 
       const result = await importData(parsed);
-      setStatus({
+      flash({
         type: "success",
         msg: t("settings.importSuccess", {
           habits: result.habits,
@@ -79,11 +118,10 @@ export function ImportExport() {
           logs: result.logs,
         }),
       });
-    } catch {
-      setStatus({ type: "error", msg: t("settings.importError") });
+    } catch (err) {
+      console.error("[Import] Import failed:", err);
+      flash({ type: "error", msg: t("settings.importError") });
     }
-
-    setTimeout(() => setStatus({ type: "idle" }), 5000);
   };
 
   return (
@@ -133,11 +171,7 @@ export function ImportExport() {
 
       {status.type !== "idle" && (
         <div className={`import-status import-status-${status.type}`}>
-          {status.type === "success" ? (
-            <CheckCircle2 size={14} />
-          ) : (
-            <AlertCircle size={14} />
-          )}
+          {status.type === "success" ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
           <span>{status.msg}</span>
         </div>
       )}

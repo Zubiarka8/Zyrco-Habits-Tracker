@@ -48,7 +48,11 @@ export function Habits() {
 
   const handleTemplateSelect = useCallback((tmpl: HabitTemplate) => {
     const isEs = i18n.language.startsWith("es");
-    // Anchor start_date to today so the habit doesn't appear in past history
+    // Auto-match the template's category label to an existing user category (case-insensitive)
+    const tplCat = tmpl.templateCategory.toLowerCase();
+    const matched = categories.find((c) =>
+      c.name.toLowerCase().includes(tplCat) || tplCat.includes(c.name.toLowerCase())
+    );
     const initial: Partial<Habit> = {
       name: isEs ? tmpl.name_es : tmpl.name,
       description: isEs ? (tmpl.description_es ?? null) : (tmpl.description ?? null),
@@ -59,6 +63,7 @@ export function Habits() {
       target_days: tmpl.target_days,
       interval_days: tmpl.interval_days,
       start_date: format(new Date(), "yyyy-MM-dd"),
+      category_id: matched?.id ?? null,
       type: tmpl.type,
       session: tmpl.session,
       completion_type: tmpl.completion_type,
@@ -69,7 +74,7 @@ export function Habits() {
     setEditHabit(null);
     setShowLibrary(false);
     setFormOpen(true);
-  }, [i18n.language]);
+  }, [i18n.language, categories]);
 
   const openEdit = (habit: Habit) => {
     setEditHabit(habit);
@@ -285,17 +290,13 @@ export function Habits() {
         <div className="habits-grid">
           {grouped.map(({ category, habits: groupHabits }) => (
             <div key={category?.id ?? "__none"} className="cat-group">
-              <div className="cat-group-header">
-                {category ? (
-                  <>
-                    <span className="cat-group-dot" style={{ background: category.color }} />
-                    <span className="cat-group-name">{category.icon} {category.name}</span>
-                  </>
-                ) : (
-                  <span className="cat-group-name">📁 {t("habits.noCategory")}</span>
-                )}
-                <span className="cat-group-count">{groupHabits.length}</span>
-              </div>
+              {category ? (
+                <div className="cat-group-header">
+                  <span className="cat-group-dot" style={{ background: category.color }} />
+                  <span className="cat-group-name">{category.icon} {category.name}</span>
+                  <span className="cat-group-count">{groupHabits.length}</span>
+                </div>
+              ) : null}
               {groupHabits.map(renderHabitCard)}
             </div>
           ))}
