@@ -2964,6 +2964,34 @@ a { text-decoration: none; color: inherit; }
   padding: 40px 16px;
   overflow-y: auto;
 }
+/* Inline mode — no card shell, just the content directly in the page */
+.template-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+/* Inline library section wrapper */
+.habits-library-inline { margin-top: 8px; }
+.habits-library-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.habits-library-divider::before,
+.habits-library-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
 .template-panel {
   background: var(--color-surface);
   border-radius: var(--radius);

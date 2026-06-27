@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp, Search, Sparkles } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp, Search } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
@@ -34,7 +34,6 @@ export function Habits() {
   const [pendingCreate, setPendingCreate] = useState<Omit<Habit, "id" | "created_at" | "archived"> | null>(null);
   const [groupByCategory, setGroupByCategory] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showLibrary, setShowLibrary] = useState(false);
   const [templateInitial, setTemplateInitial] = useState<Partial<Habit> | null>(null);
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -72,7 +71,6 @@ export function Habits() {
     };
     setTemplateInitial(initial);
     setEditHabit(null);
-    setShowLibrary(false);
     setFormOpen(true);
   }, [i18n.language, categories]);
 
@@ -258,23 +256,13 @@ export function Habits() {
           >
             {includeArchived ? t("habits.hideArchived") : t("habits.showArchived")}
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowLibrary(true)}>
-            <Sparkles size={14} />
-            {t("habits.library")}
-          </button>
+
           <button className="btn btn-primary" onClick={openCreate}>
             <Plus size={16} />
             {t("habits.new")}
           </button>
         </div>
       </div>
-
-      {showLibrary && (
-        <TemplateLibrary
-          onSelect={handleTemplateSelect}
-          onClose={() => setShowLibrary(false)}
-        />
-      )}
 
       {habits.length === 0 ? (
         <div className="empty-state">
@@ -306,6 +294,13 @@ export function Habits() {
           {filteredHabits.map(renderHabitCard)}
         </div>
       )}
+
+      <div className="habits-library-inline">
+        <div className="habits-library-divider">
+          <span>{t("habits.library")}</span>
+        </div>
+        <TemplateLibrary inline onSelect={handleTemplateSelect} />
+      </div>
 
       {menu && (() => {
         const menuHabit = habits.find((h) => h.id === menu.habitId) ?? null;

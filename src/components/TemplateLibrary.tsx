@@ -13,10 +13,20 @@ function useTemplateLang() {
 
 interface TemplateLibraryProps {
   onSelect: (template: HabitTemplate) => void;
-  onClose: () => void;
+  /** When true, renders inline (no fullscreen overlay). Omit onClose or pass a no-op. */
+  inline?: boolean;
+  onClose?: () => void;
 }
 
-export function TemplateLibrary({ onSelect, onClose }: TemplateLibraryProps) {
+function TemplateContent({
+  onSelect,
+  onClose,
+  inline,
+}: {
+  onSelect: (tmpl: HabitTemplate) => void;
+  onClose?: () => void;
+  inline?: boolean;
+}) {
   const { t } = useTranslation();
   const { tName, tDesc } = useTemplateLang();
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -34,78 +44,91 @@ export function TemplateLibrary({ onSelect, onClose }: TemplateLibraryProps) {
   });
 
   return (
-    <div className="template-overlay" onClick={onClose}>
-      <div className="template-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="template-header">
-          <span className="template-title">{t("habits.templates")}</span>
+    <div className={inline ? "template-inline" : "template-panel"}>
+      <div className="template-header">
+        <span className="template-title">{t("habits.templates")}</span>
+        {!inline && onClose && (
           <button className="icon-btn" onClick={onClose}>
             <X size={16} />
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="template-search-row">
-          <Search size={14} className="template-search-icon" />
-          <input
-            className="template-search-input"
-            type="text"
-            placeholder={t("habits.templatesSearch")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoFocus
-          />
-        </div>
+      <div className="template-search-row">
+        <Search size={14} className="template-search-icon" />
+        <input
+          className="template-search-input"
+          type="text"
+          placeholder={t("habits.templatesSearch")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus={!inline}
+        />
+      </div>
 
-        <div className="template-cats">
+      <div className="template-cats">
+        <button
+          className={`type-chip ${activeCategory === "all" ? "type-chip--active" : ""}`}
+          onClick={() => setActiveCategory("all")}
+        >
+          {t("habits.filterAll")}
+        </button>
+        {TEMPLATE_CATEGORIES.map((cat) => (
           <button
-            className={`type-chip ${activeCategory === "all" ? "type-chip--active" : ""}`}
-            onClick={() => setActiveCategory("all")}
+            key={cat}
+            className={`type-chip ${activeCategory === cat ? "type-chip--active" : ""}`}
+            onClick={() => setActiveCategory(cat)}
           >
-            {t("habits.filterAll")}
+            {cat}
           </button>
-          {TEMPLATE_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              className={`type-chip ${activeCategory === cat ? "type-chip--active" : ""}`}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        ))}
+      </div>
 
-        <div className="template-grid">
-          {filtered.length === 0 && (
-            <p className="template-empty">{t("habits.templatesEmpty")}</p>
-          )}
-          {filtered.map((tmpl, i) => {
-            const displayName = tName(tmpl);
-            const displayDesc = tDesc(tmpl);
-            return (
-              <button
-                key={i}
-                className="template-card"
-                style={{ "--habit-color": tmpl.color } as React.CSSProperties}
-                onClick={() => { onSelect(tmpl); onClose(); }}
-              >
-                <div className="template-card-icon" style={{ background: tmpl.color }}>
-                  {tmpl.icon}
-                </div>
-                <div className="template-card-body">
-                  <span className="template-card-name">{displayName}</span>
-                  {displayDesc && (
-                    <span className="template-card-desc">{displayDesc}</span>
+      <div className="template-grid">
+        {filtered.length === 0 && (
+          <p className="template-empty">{t("habits.templatesEmpty")}</p>
+        )}
+        {filtered.map((tmpl, i) => {
+          const displayName = tName(tmpl);
+          const displayDesc = tDesc(tmpl);
+          return (
+            <button
+              key={i}
+              className="template-card"
+              style={{ "--habit-color": tmpl.color } as React.CSSProperties}
+              onClick={() => { onSelect(tmpl); onClose?.(); }}
+            >
+              <div className="template-card-icon" style={{ background: tmpl.color }}>
+                {tmpl.icon}
+              </div>
+              <div className="template-card-body">
+                <span className="template-card-name">{displayName}</span>
+                {displayDesc && (
+                  <span className="template-card-desc">{displayDesc}</span>
+                )}
+                <span className="template-card-meta">
+                  {tmpl.templateCategory}
+                  {tmpl.completion_type !== "binary" && (
+                    <> · {tmpl.completion_type === "numeric" ? `${tmpl.completion_target} ${tmpl.completion_unit}` : `${tmpl.completion_target} min`}</>
                   )}
-                  <span className="template-card-meta">
-                    {tmpl.templateCategory}
-                    {tmpl.completion_type !== "binary" && (
-                      <> · {tmpl.completion_type === "numeric" ? `${tmpl.completion_target} ${tmpl.completion_unit}` : `${tmpl.completion_target} min`}</>
-                    )}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function TemplateLibrary({ onSelect, inline, onClose }: TemplateLibraryProps) {
+  if (inline) {
+    return <TemplateContent onSelect={onSelect} inline />;
+  }
+  return (
+    <div className="template-overlay" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <TemplateContent onSelect={onSelect} onClose={onClose} />
       </div>
     </div>
   );
