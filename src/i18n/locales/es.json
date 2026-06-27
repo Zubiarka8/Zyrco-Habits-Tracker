@@ -44,7 +44,9 @@
     "perfectDay": "¡Día perfecto!",
     "habitsCompleted": "hábitos hechos",
     "timerStart": "Iniciar temporizador",
-    "timerStop": "Parar y registrar tiempo"
+    "timerStop": "Parar y registrar tiempo",
+    "compactView": "Vista compacta",
+    "atRiskMsg": "¡{{count}} racha(s) en riesgo esta noche — no rompas la cadena!"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -113,7 +115,18 @@
     "browseTemplates": "Ver plantillas",
     "templates": "Plantillas de hábitos",
     "templatesSearch": "Buscar plantillas…",
-    "templatesEmpty": "No se encontraron plantillas"
+    "templatesEmpty": "No se encontraron plantillas",
+    "logHistory": "Registrar días pasados",
+    "retroDesc": "Pulsa un día para marcar o desmarcar los últimos 30 días.",
+    "pause": "Pausar hábito",
+    "resume": "Reanudar hábito",
+    "paused": "Pausado",
+    "pauseDesc": "Este hábito no aparecerá en Hoy hasta que lo reanudes.",
+    "pauseDays": "días",
+    "resumeConfirm": "¿Reanudar este hábito? Volverá a aparecer en Hoy.",
+    "overLimitTitle": "Tienes 7+ hábitos activos",
+    "overLimitDesc": "Rastrear más de 7 hábitos a la vez suele reducir el porcentaje de completado de todos ellos. Considera archivar o pausar alguno antes de añadir otro.",
+    "overLimitProceed": "Añadir igualmente"
   },
   "todos": {
     "title": "Tareas",
@@ -192,6 +205,10 @@
     "themeLight": "Claro",
     "themeDark": "Oscuro",
     "themeSystem": "Sistema",
+    "streaks": "Rachas",
+    "graceDays": "Días de gracia",
+    "graceDaysDesc": "Días que puedes fallar antes de romper la racha (0 = estricto, 1 = un día libre, 2 = apto para fines de semana)",
+    "graceDays_off": "Off",
     "notifications": "Notificaciones",
     "notificationsDesc": "Permitir notificaciones del escritorio para recordatorios",
     "about": "Acerca de",
@@ -249,6 +266,18 @@
       "10": "Nov",
       "11": "Dic"
     }
+  },
+  "onboarding": {
+    "welcomeTitle": "Bienvenido a Zyrco 🌱",
+    "welcomeBody": "Construye hábitos que perduran. Empieza con uno — elige una plantilla o crea el tuyo.",
+    "start": "Elige un hábito para empezar",
+    "skip": "Configuraré mis hábitos manualmente",
+    "pickTitle": "Elige tu primer hábito",
+    "pickBody": "Siempre puedes añadir más después. Empieza con uno.",
+    "createCustom": "Crear un hábito personalizado",
+    "celebrateTitle": "¡Todo listo! 🎉",
+    "celebrateBody": "ha sido añadido a tus hábitos. Márcalo cada día para construir tu racha.",
+    "goTo": "Ir a Hoy"
   },
   "auth": {
     "tagline": "Construye hábitos que perduran",

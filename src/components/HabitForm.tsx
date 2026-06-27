@@ -386,6 +386,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       reminder_time: reminderEnabled ? reminderTime : null,
       time_start: timeEnabled ? timeStart : null,
       time_end: timeEnabled && timeEndEnabled ? timeEnd : null,
+      paused_until: null,
     });
   };
 

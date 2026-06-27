@@ -979,7 +979,7 @@ a { text-decoration: none; color: inherit; }
 
 /* ── Confirm modal ──────────────────────────────────────── */
 .confirm-text { color: var(--color-muted); font-size: 14px; margin-bottom: 8px; }
-.confirm-name { font-weight: 600; font-size: 15px; }
+.confirm-name { font-weight: 600; font-size: 15px; color: var(--color-text); }
 
 /* ── Habit type ─────────────────────────────────────────── */
 .type-toggle {
@@ -3041,4 +3041,255 @@ a { text-decoration: none; color: inherit; }
   font-size: 15px;
   font-weight: 700;
   color: var(--color-text);
+}
+
+/* ── R-02: Streak milestone badge ─────────────────────────── */
+.streak-badge.streak-milestone {
+  box-shadow: 0 0 0 2px var(--color-primary-muted);
+}
+.milestone-crown {
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+/* ── R-03: Onboarding overlay ─────────────────────────────── */
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+.onboarding-card {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.onboarding-card--wide {
+  max-width: 560px;
+}
+.onboarding-logo { font-size: 3rem; }
+.onboarding-celebrate { margin: 0 auto; }
+.onboarding-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+.onboarding-body {
+  color: var(--color-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+.onboarding-cta {
+  width: 100%;
+  justify-content: center;
+  padding: 0.75rem;
+  font-size: 1rem;
+  gap: 8px;
+}
+.onboarding-skip {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  width: 100%;
+}
+.onboarding-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+.onboarding-tmpl {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-alt);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+  text-align: left;
+}
+.onboarding-tmpl:hover {
+  border-color: var(--habit-color, var(--color-primary));
+  background: var(--color-surface);
+}
+.onboarding-tmpl-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.onboarding-tmpl-name {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+.onboarding-tmpl-desc {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  display: block;
+}
+
+/* ── R-05: Retroactive log modal ──────────────────────────── */
+.retro-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+}
+.retro-panel {
+  background: var(--color-surface);
+  border-radius: 14px;
+  padding: 1.5rem;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.retro-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.retro-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+.retro-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+.retro-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+@media (max-width: 400px) {
+  .retro-grid { grid-template-columns: repeat(5, 1fr); }
+}
+.retro-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface-alt);
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  transition: background 0.12s, border-color 0.12s;
+}
+.retro-cell:hover { border-color: var(--color-primary); }
+.retro-cell--today { border-color: var(--color-primary); }
+.retro-cell--done {
+  background: var(--color-primary-muted);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.retro-cell--done svg { color: var(--color-primary); }
+.retro-cell-dow { font-size: 0.65rem; opacity: 0.7; }
+.retro-cell-day { font-weight: 600; font-size: 0.78rem; color: var(--color-text); }
+.retro-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── R-06: At-risk banner ──────────────────────────────────── */
+.at-risk-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  color: #92400e;
+  margin-bottom: 0.25rem;
+}
+[data-theme="dark"] .at-risk-banner {
+  background: #451a03;
+  border-color: #d97706;
+  color: #fbbf24;
+}
+
+/* ── R-09: Compact view ────────────────────────────────────── */
+.compact-toggle { font-size: 1rem; min-width: 32px; }
+.compact-toggle--active { background: var(--color-primary-muted); color: var(--color-primary); }
+.cal-day-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.habit-row--compact {
+  padding: 0.35rem 0.75rem;
+  min-height: 40px;
+}
+.habit-list--compact .habit-row--compact .habit-row-body {
+  gap: 0.5rem;
+}
+.habit-list--compact .habit-row--compact .habit-meta-row,
+.habit-list--compact .habit-row--compact .strength-bar-inline {
+  display: none;
+}
+.habit-list--compact .habit-row--compact .habit-name {
+  font-size: 0.85rem;
+}
+.habit-list--compact .habit-row--compact .habit-color-bar {
+  width: 3px;
+}
+
+/* ── R-13: Paused habit badge ─────────────────────────────── */
+.paused-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 99px;
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+.pause-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pause-day-btn {
+  flex: 1 1 calc(50% - 0.25rem);
+  border: 1.5px solid var(--color-border);
+}
+.pause-day-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }

@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
-import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
 import { Modal } from "../components/Modal";
 import { HabitForm } from "../components/HabitForm";
 import { StreakBadge } from "../components/StreakBadge";
+import { RetroLogModal } from "../components/RetroLogModal";
 import type { Habit } from "../types";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
@@ -22,6 +24,12 @@ export function Habits() {
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
+  const [retroHabit, setRetroHabit] = useState<Habit | null>(null);
+  const [pauseHabit, setPauseHabit] = useState<Habit | null>(null);
+  const [pendingCreate, setPendingCreate] = useState<Omit<Habit, "id" | "created_at" | "archived"> | null>(null);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const activeCount = habits.filter((h) => !h.archived && !(h.paused_until && h.paused_until > today)).length;
 
   const openCreate = () => {
     setEditHabit(null);
@@ -37,11 +45,26 @@ export function Habits() {
   const handleSave = async (data: Omit<Habit, "id" | "created_at" | "archived">) => {
     if (editHabit) {
       await update(editHabit.id, data);
+      setFormOpen(false);
+      setEditHabit(null);
     } else {
+      // R-10: soft warning at habit #8 — pause here, confirm in modal
+      if (activeCount >= 7) {
+        setPendingCreate(data);
+        setFormOpen(false);
+        return;
+      }
       await create(data);
+      setFormOpen(false);
     }
-    setFormOpen(false);
-    setEditHabit(null);
+  };
+
+  const handlePause = async (days: number) => {
+    if (!pauseHabit) return;
+    const until = days === 0 ? null : format(addDays(new Date(), days), "yyyy-MM-dd");
+    await update(pauseHabit.id, { paused_until: until });
+    setPauseHabit(null);
+    setMenu(null);
   };
 
   const handleArchive = async (habit: Habit) => {
@@ -112,6 +135,9 @@ export function Habits() {
                       {habit.archived && (
                         <span className="archived-badge">{t("habits.archived")}</span>
                       )}
+                      {!habit.archived && habit.paused_until && habit.paused_until > today && (
+                        <span className="paused-badge">⏸ {t("habits.paused")}</span>
+                      )}
                     </div>
                     {habit.description && (
                       <p className="habit-desc">{habit.description}</p>
@@ -175,6 +201,17 @@ export function Habits() {
               <Edit2 size={14} />
               {t("habits.edit")}
             </button>
+            <button className="dropdown-item" onClick={() => { setRetroHabit(menuHabit); setMenu(null); }}>
+              <History size={14} />
+              {t("habits.logHistory")}
+            </button>
+            {!menuHabit.archived && (
+              <button className="dropdown-item" onClick={() => { setPauseHabit(menuHabit); setMenu(null); }}>
+                {menuHabit.paused_until && menuHabit.paused_until > today
+                  ? <><PlayCircle size={14} />{t("habits.resume")}</>
+                  : <><PauseCircle size={14} />{t("habits.pause")}</>}
+              </button>
+            )}
             <button className="dropdown-item" onClick={() => handleArchive(menuHabit)}>
               {menuHabit.archived ? (
                 <><ArchiveRestore size={14} />{t("habits.unarchive")}</>
@@ -209,6 +246,66 @@ export function Habits() {
           onSave={handleSave}
           onCancel={() => setFormOpen(false)}
         />
+      </Modal>
+
+      {retroHabit && (
+        <RetroLogModal habit={retroHabit} onClose={() => setRetroHabit(null)} />
+      )}
+
+      <Modal
+        open={!!pauseHabit}
+        title={pauseHabit?.paused_until && pauseHabit.paused_until > today ? t("habits.resume") : t("habits.pause")}
+        onClose={() => setPauseHabit(null)}
+        size="sm"
+      >
+        {pauseHabit?.paused_until && pauseHabit.paused_until > today ? (
+          <div className="habit-form">
+            <p className="confirm-text">{t("habits.resumeConfirm")}</p>
+            <p className="confirm-name">{pauseHabit?.name}</p>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setPauseHabit(null)}>{t("common.cancel")}</button>
+              <button className="btn btn-primary" onClick={() => handlePause(0)}>{t("habits.resume")}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="habit-form">
+            <p className="confirm-text">{t("habits.pauseDesc")}</p>
+            <p className="confirm-name">{pauseHabit?.name}</p>
+            <div className="pause-options">
+              {[3, 7, 14, 30].map((d) => (
+                <button key={d} className="btn btn-ghost pause-day-btn" onClick={() => handlePause(d)}>
+                  {d} {t("habits.pauseDays")}
+                </button>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-ghost" onClick={() => setPauseHabit(null)}>{t("common.cancel")}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!pendingCreate}
+        title={t("habits.overLimitTitle")}
+        onClose={() => setPendingCreate(null)}
+        size="sm"
+      >
+        <div className="habit-form">
+          <p className="confirm-text">{t("habits.overLimitDesc")}</p>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setPendingCreate(null)}>{t("common.cancel")}</button>
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                if (pendingCreate) await create(pendingCreate);
+                setPendingCreate(null);
+              }}
+            >
+              {t("habits.overLimitProceed")}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <Modal

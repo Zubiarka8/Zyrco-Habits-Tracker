@@ -23,39 +23,44 @@ function calculateStrengthScore(logs: Log[], habitId: string): number {
 }
 
 
+function getGraceDays(): number {
+  return Math.max(0, Math.min(2, parseInt(localStorage.getItem("zyrco-grace-days") ?? "1", 10)));
+}
+
 function calculateStreak(logs: Log[], habitId: string): { current: number; best: number } {
-  const completed = logs
-    .filter((l) => l.habit_id === habitId && l.completed)
-    .map((l) => l.date)
-    .sort()
-    .reverse();
+  const graceDays = getGraceDays();
+  const completedDates = new Set(
+    logs.filter((l) => l.habit_id === habitId && l.completed).map((l) => l.date)
+  );
 
-  if (completed.length === 0) return { current: 0, best: 0 };
+  if (completedDates.size === 0) return { current: 0, best: 0 };
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
-
+  // ── current streak: walk backward from today, allow up to graceDays consecutive misses ──
   let current = 0;
-  let expected = completed[0] >= today ? today : yesterday;
+  let missRun = 0;
+  let started = false;
 
-  for (const date of completed) {
-    if (date === expected) {
+  for (let i = 0; i < 3650; i++) {
+    const ds = format(subDays(new Date(), i), "yyyy-MM-dd");
+    if (completedDates.has(ds)) {
       current++;
-      expected = format(subDays(parseISO(expected), 1), "yyyy-MM-dd");
-    } else if (date < expected) {
-      break;
+      started = true;
+      missRun = 0;
+    } else {
+      if (!started && i > graceDays) break;
+      if (started && missRun >= graceDays) break;
+      missRun++;
     }
   }
 
+  // ── best streak: longest unbroken run (no grace on best, keeps the number honest) ──
+  const sortedAsc = [...completedDates].sort();
   let best = 0;
   let run = 0;
   let prev: string | null = null;
 
-  for (const date of [...completed].reverse()) {
-    if (
-      prev === null ||
-      date === format(subDays(parseISO(prev), -1), "yyyy-MM-dd")
-    ) {
+  for (const date of sortedAsc) {
+    if (prev === null || date === format(subDays(parseISO(prev), -1), "yyyy-MM-dd")) {
       run++;
     } else {
       run = 1;

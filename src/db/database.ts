@@ -196,6 +196,10 @@ async function initSchema(database: Database): Promise<void> {
     await database.execute("ALTER TABLE habits ADD COLUMN completion_unit TEXT");
   }
 
+  if (!habitColNames.has("paused_until")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN paused_until TEXT");
+  }
+
   const logCols2 = await database.select<{ name: string }[]>("PRAGMA table_info(logs)");
   if (!logCols2.some((c) => c.name === "value")) {
     await database.execute("ALTER TABLE logs ADD COLUMN value REAL");
@@ -427,6 +431,7 @@ function parseHabit(raw: RawHabit): Habit {
     completion_type: (raw.completion_type as Habit["completion_type"]) ?? "binary",
     completion_target: raw.completion_target ?? null,
     completion_unit: raw.completion_unit ?? null,
+    paused_until: raw.paused_until ?? null,
   };
 }
 

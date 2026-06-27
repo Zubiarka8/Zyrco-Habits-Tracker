@@ -1,6 +1,6 @@
 import type { Habit } from "../types";
 
-export type HabitTemplate = Omit<Habit, "id" | "created_at" | "archived"> & {
+export type HabitTemplate = Omit<Habit, "id" | "created_at" | "archived" | "paused_until"> & {
   templateCategory: string;
   name_es: string;
   description_es: string | null;

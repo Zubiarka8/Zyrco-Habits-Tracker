@@ -39,6 +39,8 @@ export interface Habit {
   time_start: string | null;
   /** HH:MM — optional end time; only meaningful when time_start is set */
   time_end: string | null;
+  /** R-13: yyyy-MM-dd after which the habit resumes. Null = not paused. */
+  paused_until: string | null;
   created_at: string;
   archived: boolean;
 }

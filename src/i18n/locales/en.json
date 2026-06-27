@@ -44,7 +44,9 @@
     "perfectDay": "Perfect day!",
     "habitsCompleted": "habits done",
     "timerStart": "Start timer",
-    "timerStop": "Stop & log time"
+    "timerStop": "Stop & log time",
+    "compactView": "Compact view",
+    "atRiskMsg": "{{count}} streak(s) at risk tonight — don't break the chain!"
   },
   "habits": {
     "title": "My Habits",
@@ -113,7 +115,18 @@
     "browseTemplates": "Browse templates",
     "templates": "Habit templates",
     "templatesSearch": "Search templates…",
-    "templatesEmpty": "No templates found"
+    "templatesEmpty": "No templates found",
+    "logHistory": "Log past days",
+    "retroDesc": "Tap a day to toggle completion for the last 30 days.",
+    "pause": "Pause habit",
+    "resume": "Resume habit",
+    "paused": "Paused",
+    "pauseDesc": "This habit won't appear in Today until resumed.",
+    "pauseDays": "days",
+    "resumeConfirm": "Resume this habit? It will appear in Today again.",
+    "overLimitTitle": "You have 7+ active habits",
+    "overLimitDesc": "Tracking more than 7 habits at once tends to reduce your completion rate for all of them. Consider archiving or pausing one before adding another.",
+    "overLimitProceed": "Add anyway"
   },
   "todos": {
     "title": "Tasks",
@@ -205,6 +218,10 @@
     "importDesc": "Merge habits from a previously exported JSON file",
     "importSuccess": "Imported: {{habits}} habits, {{categories}} categories, {{logs}} check-ins",
     "importError": "Invalid file. Make sure it is a Zyrco export.",
+    "streaks": "Streaks",
+    "graceDays": "Grace days",
+    "graceDaysDesc": "Missed days before a streak breaks (0 = strict, 1 = one day off allowed, 2 = weekend-friendly)",
+    "graceDays_off": "Off",
     "reminderActive": "Reminders active",
     "reminderInactive": "Reminders inactive",
     "enableReminders": "Enable reminders",
@@ -249,6 +266,18 @@
       "10": "Nov",
       "11": "Dec"
     }
+  },
+  "onboarding": {
+    "welcomeTitle": "Welcome to Zyrco 🌱",
+    "welcomeBody": "Build habits that stick. Let's start with one — pick a template or create your own.",
+    "start": "Pick a habit to start",
+    "skip": "I'll set up my habits manually",
+    "pickTitle": "Pick your first habit",
+    "pickBody": "You can always add more later. Just pick one to get going.",
+    "createCustom": "Create a custom habit instead",
+    "celebrateTitle": "You're all set! 🎉",
+    "celebrateBody": "has been added to your habits. Check it off every day to build your streak.",
+    "goTo": "Go to Today"
   },
   "auth": {
     "tagline": "Build habits that stick",

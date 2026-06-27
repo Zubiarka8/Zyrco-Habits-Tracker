@@ -152,6 +152,7 @@ function HabitList({
   activeTimers,
   onTimerStart,
   onTimerStop,
+  compact,
 }: {
   habits: Habit[];
   logs: Log[];
@@ -164,6 +165,7 @@ function HabitList({
   activeTimers?: Map<string, { startedAt: Date }>;
   onTimerStart?: (habitId: string) => void;
   onTimerStop?: (habitId: string, elapsedMinutes: number) => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const [expandedNumeric, setExpandedNumeric] = useState<string | null>(null);
@@ -174,7 +176,7 @@ function HabitList({
   );
 
   return (
-    <div className="habit-list">
+    <div className={`habit-list ${compact ? "habit-list--compact" : ""}`}>
       {habits.map((habit) => {
         const log       = getLog(habit.id);
         const completed = log?.completed ?? false;
@@ -188,7 +190,7 @@ function HabitList({
         return (
           <div
             key={habit.id}
-            className={`habit-row ${completed ? "habit-row-done" : ""}`}
+            className={`habit-row ${completed ? "habit-row-done" : ""} ${compact ? "habit-row--compact" : ""}`}
             style={{ "--habit-color": habit.color } as React.CSSProperties}
           >
             <div className="habit-color-bar" />
@@ -683,6 +685,24 @@ export function Today() {
   // ── Note modal ────────────────────────────────────────────
   const [noteHabit, setNoteHabit] = useState<Habit | null>(null);
 
+  // ── R-09: compact view ────────────────────────────────────
+  const [compactView, setCompactView] = useState(
+    () => localStorage.getItem("zyrco-compact-view") === "true"
+  );
+  const toggleCompact = useCallback(() => {
+    setCompactView((v) => {
+      localStorage.setItem("zyrco-compact-view", String(!v));
+      return !v;
+    });
+  }, []);
+
+  // ── R-04: milestone toasts ────────────────────────────────
+  const shownMilestones = useRef(new Set<string>());
+  const MILESTONES = [7, 21, 30, 66, 100];
+
+  // ── R-06: at-risk banner ──────────────────────────────────
+  const [atRiskDismissed, setAtRiskDismissed] = useState(false);
+
   // ── Active timers (P-04) ──────────────────────────────────
   const [activeTimers, setActiveTimers] = useState<Map<string, { startedAt: Date }>>(new Map());
 
@@ -800,7 +820,12 @@ export function Today() {
 
   // ── Due habits for the selected date ─────────────────────
   const selectedDateObj = parseISO(selectedDate + "T00:00:00");
-  const allDueHabits = habits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
+  const activeDayHabits = habits.filter((h) => {
+    // R-13: skip paused habits in Today view
+    if (h.paused_until && h.paused_until >= selectedDate) return false;
+    return true;
+  });
+  const allDueHabits = activeDayHabits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
   const dueHabits     = allDueHabits.filter((h) => !isSkipped(h.id));
   const skippedHabits = allDueHabits.filter((h) => isSkipped(h.id));
 
@@ -811,6 +836,28 @@ export function Today() {
 
   const done  = dueHabits.filter((h) => getLog(h.id)?.completed).length;
   const total = dueHabits.length;
+
+  // R-04: check milestone streaks and fire a toast once per session per habit+milestone
+  const completedHabits = dueHabits.filter((h) => getLog(h.id)?.completed);
+  completedHabits.forEach((h) => {
+    const streak = getHabitStats(h.id).streak;
+    for (const m of MILESTONES) {
+      if (streak === m) {
+        const key = `${h.id}-${m}`;
+        if (!shownMilestones.current.has(key)) {
+          shownMilestones.current.add(key);
+          showToast(`🏆 ${h.icon} ${h.name}: ${m}-day streak!`, "success");
+        }
+      }
+    }
+  });
+
+  // R-06: show at-risk banner when it's past 20:00, habits with streak ≥ 3 are pending, and today
+  const hour = new Date().getHours();
+  const _isToday = selectedDate === todayStr;
+  const atRiskHabits = _isToday
+    ? dueHabits.filter((h) => !getLog(h.id)?.completed && getHabitStats(h.id).streak >= 3)
+    : [];
 
   const toggleForRange = useCallback(
     async (habitId: string, date: string, currentCompleted: boolean) => {
@@ -916,6 +963,7 @@ export function Today() {
     activeTimers,
     onTimerStart: handleTimerStart,
     onTimerStop: handleTimerStop,
+    compact: compactView,
   };
 
   return (
@@ -1095,6 +1143,14 @@ export function Today() {
             onGoToToday={handleGoToToday}
           />
 
+          {/* R-06: at-risk banner */}
+          {hour >= 20 && !atRiskDismissed && atRiskHabits.length > 0 && (
+            <div className="at-risk-banner">
+              <span>⚠️ {t("today.atRiskMsg", { count: atRiskHabits.length })}</span>
+              <button className="icon-btn" onClick={() => setAtRiskDismissed(true)}>✕</button>
+            </div>
+          )}
+
           <div className="cal-day-header">
             {total > 0 && (
               <div className="progress-pill">
@@ -1102,10 +1158,22 @@ export function Today() {
                 <span className="progress-label">{t("today.progress", { done, total })}</span>
               </div>
             )}
-            <button className="btn btn-primary btn-sm" onClick={openCreate}>
-              <Plus size={14} />
-              {t("habits.new")}
-            </button>
+            <div className="cal-day-header-actions">
+              {/* R-09: compact view toggle */}
+              {dueHabits.length > 0 && (
+                <button
+                  className={`btn btn-ghost btn-sm compact-toggle ${compactView ? "compact-toggle--active" : ""}`}
+                  onClick={toggleCompact}
+                  title={t("today.compactView")}
+                >
+                  ☰
+                </button>
+              )}
+              <button className="btn btn-primary btn-sm" onClick={openCreate}>
+                <Plus size={14} />
+                {t("habits.new")}
+              </button>
+            </div>
           </div>
 
           {dueHabits.length === 0 && skippedHabits.length === 0 && !logsLoading && (

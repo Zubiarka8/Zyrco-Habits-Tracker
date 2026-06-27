@@ -65,7 +65,15 @@ export function Settings() {
   const [theme, setTheme] = useState<Theme>(
     () => (localStorage.getItem("zyrco-theme") as Theme) ?? "system"
   );
+  const [graceDays, setGraceDays] = useState<number>(
+    () => Math.max(0, Math.min(2, parseInt(localStorage.getItem("zyrco-grace-days") ?? "1", 10)))
+  );
   const [notifGranted, setNotifGranted] = useState<boolean | null>(null);
+
+  const handleGraceDays = (n: number) => {
+    setGraceDays(n);
+    localStorage.setItem("zyrco-grace-days", String(n));
+  };
 
   const [catFormOpen, setCatFormOpen] = useState(false);
   const [editCat, setEditCat] = useState<Category | null>(null);
@@ -162,6 +170,27 @@ export function Settings() {
                   onClick={() => handleTheme(th)}
                 >
                   {t(`settings.theme${th.charAt(0).toUpperCase() + th.slice(1)}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <h2 className="section-title">{t("settings.streaks")}</h2>
+          <div className="setting-row">
+            <div>
+              <p className="setting-label">{t("settings.graceDays")}</p>
+              <p className="text-muted text-sm">{t("settings.graceDaysDesc")}</p>
+            </div>
+            <div className="btn-group">
+              {[0, 1, 2].map((n) => (
+                <button
+                  key={n}
+                  className={`btn btn-sm ${graceDays === n ? "btn-primary" : "btn-ghost"}`}
+                  onClick={() => handleGraceDays(n)}
+                >
+                  {n === 0 ? t("settings.graceDays_off") : `${n}`}
                 </button>
               ))}
             </div>
