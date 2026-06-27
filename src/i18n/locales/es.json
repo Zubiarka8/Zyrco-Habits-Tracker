@@ -133,7 +133,8 @@
     "groupByCategory": "Agrupar por categoría",
     "flatList": "Lista plana",
     "search": "Buscar hábitos…",
-    "reminderComingSoon": "Próximamente"
+    "reminderComingSoon": "Próximamente",
+    "library": "Biblioteca"
   },
   "todos": {
     "title": "Tareas",

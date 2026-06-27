@@ -2,21 +2,23 @@ import { useState, useMemo, useCallback } from "react";
 import { format, addDays } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp, Search } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, History, PauseCircle, PlayCircle, TrendingUp, Search, Sparkles } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
 import { Modal } from "../components/Modal";
 import { HabitForm } from "../components/HabitForm";
+import { TemplateLibrary } from "../components/TemplateLibrary";
 import { StreakBadge } from "../components/StreakBadge";
 import { RetroLogModal } from "../components/RetroLogModal";
 import { SkeletonHabitCard } from "../components/Skeleton";
 import type { Habit } from "../types";
+import type { HabitTemplate } from "../data/habitTemplates";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
 
 export function Habits() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [includeArchived, setIncludeArchived] = useState(false);
   const { habits, loading, create, update, archive, remove } = useHabits(includeArchived);
@@ -32,17 +34,46 @@ export function Habits() {
   const [pendingCreate, setPendingCreate] = useState<Omit<Habit, "id" | "created_at" | "archived"> | null>(null);
   const [groupByCategory, setGroupByCategory] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [templateInitial, setTemplateInitial] = useState<Partial<Habit> | null>(null);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const activeCount = habits.filter((h) => !h.archived && !(h.paused_until && h.paused_until > today)).length;
 
   const openCreate = () => {
     setEditHabit(null);
+    setTemplateInitial(null);
     setFormOpen(true);
   };
 
+  const handleTemplateSelect = useCallback((tmpl: HabitTemplate) => {
+    const isEs = i18n.language.startsWith("es");
+    // Anchor start_date to today so the habit doesn't appear in past history
+    const initial: Partial<Habit> = {
+      name: isEs ? tmpl.name_es : tmpl.name,
+      description: isEs ? (tmpl.description_es ?? null) : (tmpl.description ?? null),
+      color: tmpl.color,
+      icon: tmpl.icon,
+      frequency: tmpl.frequency,
+      custom_type: tmpl.custom_type,
+      target_days: tmpl.target_days,
+      interval_days: tmpl.interval_days,
+      start_date: format(new Date(), "yyyy-MM-dd"),
+      type: tmpl.type,
+      session: tmpl.session,
+      completion_type: tmpl.completion_type,
+      completion_target: tmpl.completion_target,
+      completion_unit: tmpl.completion_unit,
+    };
+    setTemplateInitial(initial);
+    setEditHabit(null);
+    setShowLibrary(false);
+    setFormOpen(true);
+  }, [i18n.language]);
+
   const openEdit = (habit: Habit) => {
     setEditHabit(habit);
+    setTemplateInitial(null);
     setFormOpen(true);
     setMenu(null);
   };
@@ -222,12 +253,23 @@ export function Habits() {
           >
             {includeArchived ? t("habits.hideArchived") : t("habits.showArchived")}
           </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowLibrary(true)}>
+            <Sparkles size={14} />
+            {t("habits.library")}
+          </button>
           <button className="btn btn-primary" onClick={openCreate}>
             <Plus size={16} />
             {t("habits.new")}
           </button>
         </div>
       </div>
+
+      {showLibrary && (
+        <TemplateLibrary
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowLibrary(false)}
+        />
+      )}
 
       {habits.length === 0 ? (
         <div className="empty-state">
@@ -320,10 +362,10 @@ export function Habits() {
         size="lg"
       >
         <HabitForm
-          initial={editHabit ?? undefined}
+          initial={editHabit ?? templateInitial ?? undefined}
           categories={categories}
           onSave={handleSave}
-          onCancel={() => setFormOpen(false)}
+          onCancel={() => { setFormOpen(false); setTemplateInitial(null); }}
         />
       </Modal>
 

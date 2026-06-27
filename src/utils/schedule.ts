@@ -10,7 +10,10 @@ export function isHabitDueOnDay(habit: Habit, date: Date): boolean {
   if (habit.archived) return false;
 
   const dateStr = format(date, "yyyy-MM-dd");
-  if (habit.start_date && dateStr < habit.start_date) return false;
+  // Use created_at as start boundary when start_date is not explicitly set —
+  // prevents daily habits from appearing in the calendar before they existed.
+  const effectiveStart = habit.start_date ?? habit.created_at.slice(0, 10);
+  if (dateStr < effectiveStart) return false;
   if (habit.end_date && dateStr > habit.end_date) return false;
 
   const dow = date.getDay();

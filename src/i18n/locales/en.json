@@ -133,7 +133,8 @@
     "groupByCategory": "Group by category",
     "flatList": "Flat list",
     "search": "Search habits…",
-    "reminderComingSoon": "Coming soon"
+    "reminderComingSoon": "Coming soon",
+    "library": "Library"
   },
   "todos": {
     "title": "Tasks",
