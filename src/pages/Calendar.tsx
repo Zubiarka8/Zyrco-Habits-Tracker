@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import {
   format,
   addMonths, subMonths,
   startOfMonth, endOfMonth,
   eachDayOfInterval,
-  isSameMonth, isToday, isFuture,
+  isSameMonth, isToday, isFuture, getISODay,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, X, CheckCircle2, Circle } from "lucide-react";
@@ -13,6 +13,28 @@ import { useHabits } from "../hooks/useHabits";
 import { useCalendarLogs, useDateLogs } from "../hooks/useLogs";
 import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit } from "../types";
+
+// ── SVG progress ring ─────────────────────────────────────────────────────────
+
+function ProgressRing({ pct }: { pct: number }) {
+  const size = 72;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }} aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--color-border)" strokeWidth={stroke} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke="var(--color-primary)" strokeWidth={stroke}
+        strokeDasharray={circ} strokeDashoffset={offset}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 0.6s ease" }}
+      />
+    </svg>
+  );
+}
 
 // ── Day drawer (bottom sheet) ─────────────────────────────────────────────────
 
@@ -82,6 +104,10 @@ function DayDrawer({ day, dueHabits, onClose }: DayDrawerProps) {
                   onClick={() => !future && toggle(habit.id, done)}
                   disabled={future}
                 >
+                  <span
+                    className="cal-drawer-color-bar"
+                    style={{ background: done ? habit.color : "var(--color-border)" }}
+                  />
                   <span
                     className="cal-drawer-icon"
                     style={{ background: habit.color + "22" }}
@@ -214,7 +240,8 @@ export function Calendar() {
             <ChevronLeft size={20} />
           </button>
           <h1 className="cal-month-title">
-            {format(viewDate, "MMMM yyyy")}
+            <span className="cal-month-name">{format(viewDate, "MMMM")}</span>
+            <span className="cal-month-year">{format(viewDate, "yyyy")}</span>
           </h1>
           <button className="icon-btn" onClick={nextMonth} aria-label="Next month">
             <ChevronRight size={20} />
@@ -225,27 +252,37 @@ export function Calendar() {
         </button>
       </div>
 
-      {/* Month completion bar */}
+      {/* Month summary card */}
       {monthSummary.due > 0 && (
-        <div className="cal-summary">
-          <div className="cal-summary-bar-wrap">
-            <div className="cal-summary-bar">
-              <div
-                className="cal-summary-bar-fill"
-                style={{ width: `${monthSummary.rate}%` }}
-              />
+        <div className="cal-summary-card">
+          <div className="cal-ring-wrap">
+            <ProgressRing pct={monthSummary.rate} />
+            <div className="cal-ring-center">
+              <span className="cal-ring-pct">{monthSummary.rate}</span>
+              <span className="cal-ring-unit">%</span>
             </div>
           </div>
-          <span className="cal-summary-stat">
-            {monthSummary.done}/{monthSummary.due}
-            <span className="cal-summary-rate"> — {monthSummary.rate}%</span>
-          </span>
+          <div className="cal-summary-info">
+            <div className="cal-summary-row">
+              <span className="cal-sum-dot" style={{ background: "var(--color-primary)" }} />
+              <span className="cal-sum-val">{monthSummary.done}</span>
+              <span className="cal-sum-lbl">{t("calendar.legendDone")}</span>
+            </div>
+            <div className="cal-summary-row">
+              <span className="cal-sum-dot" style={{ background: "var(--color-border)" }} />
+              <span className="cal-sum-val">{monthSummary.due - monthSummary.done}</span>
+              <span className="cal-sum-lbl">{t("calendar.legendPending")}</span>
+            </div>
+            <div className="cal-summary-bar">
+              <div className="cal-summary-bar-fill" style={{ width: `${monthSummary.rate}%` }} />
+            </div>
+          </div>
         </div>
       )}
 
       {/* Day list */}
       <div className="cal-day-list">
-        {monthDays.map((day) => {
+        {monthDays.map((day, idx) => {
           const dateStr = format(day, "yyyy-MM-dd");
           const today = isToday(day);
           const future = !today && isFuture(day);
@@ -255,73 +292,85 @@ export function Calendar() {
             dayLogs.some((l) => l.habit_id === h.id && l.completed)
           ).length;
           const allDone = dueHabits.length > 0 && completedCount === dueHabits.length;
+          const partial = !allDone && completedCount > 0;
           const hasHabits = dueHabits.length > 0;
           const wdKey = format(day, "EEE").toLowerCase().slice(0, 2);
+          // Insert a week separator line before each Monday (except the first row)
+          const showWeekSep = getISODay(day) === 1 && idx > 0;
 
           return (
-            <div
-              key={dateStr}
-              ref={today ? todayRowRef : undefined}
-              className={[
-                "cal-day-row",
-                today ? "cal-day-row--today" : "",
-                future ? "cal-day-row--future" : "",
-                !hasHabits ? "cal-day-row--empty" : "",
-                allDone ? "cal-day-row--alldone" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => hasHabits && setSelectedDay(day)}
-              role={hasHabits ? "button" : undefined}
-              tabIndex={hasHabits ? 0 : undefined}
-              onKeyDown={
-                hasHabits
-                  ? (e) => e.key === "Enter" && setSelectedDay(day)
-                  : undefined
-              }
-            >
-              {/* Day circle */}
-              <span className={`cal-day-circle ${today ? "cal-day-circle--today" : ""}`}>
-                {format(day, "d")}
-              </span>
+            <Fragment key={dateStr}>
+              {showWeekSep && <div className="cal-week-sep" />}
+              <div
+                ref={today ? todayRowRef : undefined}
+                className={[
+                  "cal-day-row",
+                  today ? "cal-day-row--today" : "",
+                  future ? "cal-day-row--future" : "",
+                  !hasHabits ? "cal-day-row--empty" : "",
+                  allDone ? "cal-day-row--alldone" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => hasHabits && setSelectedDay(day)}
+                role={hasHabits ? "button" : undefined}
+                tabIndex={hasHabits ? 0 : undefined}
+                onKeyDown={
+                  hasHabits
+                    ? (e) => e.key === "Enter" && setSelectedDay(day)
+                    : undefined
+                }
+              >
+                {/* Left accent bar — today or all-done */}
+                <span className={`cal-accent-bar ${today ? "cal-accent-bar--today" : allDone ? "cal-accent-bar--done" : ""}`} />
 
-              {/* Weekday abbreviation */}
-              <span className="cal-day-wd">
-                {t(`calendar.weekday_${wdKey}`)}
-              </span>
+                {/* Day circle */}
+                <span className={`cal-day-circle ${today ? "cal-day-circle--today" : ""}`}>
+                  {format(day, "d")}
+                </span>
 
-              {/* Habit emoji chips */}
-              <div className="cal-day-chips">
-                {!hasHabits ? (
-                  <span className="cal-day-rest">—</span>
-                ) : (
-                  dueHabits.slice(0, 10).map((h) => {
-                    const done = dayLogs.some(
-                      (l) => l.habit_id === h.id && l.completed
-                    );
-                    return (
-                      <span
-                        key={h.id}
-                        className={`cal-chip ${done ? "cal-chip--done" : "cal-chip--pending"}`}
-                        style={done ? { background: h.color + "22" } : undefined}
-                        title={h.name}
-                      >
-                        {h.icon}
-                      </span>
-                    );
-                  })
+                {/* Weekday abbreviation */}
+                <span className="cal-day-wd">
+                  {t(`calendar.weekday_${wdKey}`)}
+                </span>
+
+                {/* Habit emoji chips */}
+                <div className="cal-day-chips">
+                  {!hasHabits ? (
+                    <span className="cal-day-rest">—</span>
+                  ) : (
+                    dueHabits.slice(0, 10).map((h) => {
+                      const done = dayLogs.some(
+                        (l) => l.habit_id === h.id && l.completed
+                      );
+                      return (
+                        <span
+                          key={h.id}
+                          className={`cal-chip ${done ? "cal-chip--done" : "cal-chip--pending"}`}
+                          style={done ? { background: h.color + "22" } : undefined}
+                          title={h.name}
+                        >
+                          {h.icon}
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Fraction pill */}
+                {hasHabits && (
+                  <span className={[
+                    "cal-frac-pill",
+                    allDone  ? "cal-frac-pill--done"    : "",
+                    partial  ? "cal-frac-pill--partial" : "",
+                    future   ? "cal-frac-pill--future"  : "",
+                    !allDone && !partial && !future ? "cal-frac-pill--zero" : "",
+                  ].filter(Boolean).join(" ")}>
+                    {allDone ? "✓" : `${completedCount}/${dueHabits.length}`}
+                  </span>
                 )}
               </div>
-
-              {/* Completion fraction */}
-              {hasHabits && (
-                <span
-                  className={`cal-day-frac ${allDone ? "cal-day-frac--done" : future ? "cal-day-frac--future" : completedCount === 0 ? "cal-day-frac--zero" : ""}`}
-                >
-                  {allDone ? "✓" : `${completedCount}/${dueHabits.length}`}
-                </span>
-              )}
-            </div>
+            </Fragment>
           );
         })}
       </div>
