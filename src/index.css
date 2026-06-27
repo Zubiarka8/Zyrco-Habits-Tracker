@@ -138,9 +138,29 @@ a { text-decoration: none; color: inherit; }
 }
 
 /* ── Page ───────────────────────────────────────────────── */
-/* Standard pages are capped for readability; monthly calendar overrides this */
-.page { max-width: 860px; }
+/* Responsive max-width: grows proportionally with the screen so large monitors
+   don't waste space with a fixed 860px column. */
+.page { max-width: 900px; }
 .today-page--monthly { max-width: 100%; }
+
+@media (min-width: 1280px) {
+  .page { max-width: 1100px; }
+  .main-content { padding: 36px 48px; }
+}
+@media (min-width: 1600px) {
+  .page { max-width: 1400px; }
+  .main-content { padding: 40px 60px; }
+}
+@media (min-width: 1920px) {
+  .page { max-width: 1680px; }
+  .main-content { padding: 44px 72px; }
+  /* On 1080p+ screens, habit cards in flat list become 2 columns */
+  .habits-grid:not(:has(.cat-group)) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
 .page-loading {
   display: flex;
   align-items: center;
@@ -441,7 +461,31 @@ a { text-decoration: none; color: inherit; }
   box-shadow: var(--shadow);
 }
 
-.habit-row-done { opacity: .65; }
+/* Completed habit row — visually distinct but still readable */
+.habit-row-done {
+  opacity: .65;
+}
+.habit-row-done .habit-color-bar {
+  background: var(--color-success) !important;
+}
+.habit-row-done .habit-name { text-decoration: line-through; text-decoration-color: var(--color-border); }
+
+/* Flash animation when a habit is JUST completed */
+@keyframes habit-done-flash {
+  0%   { background: color-mix(in srgb, var(--color-success) 18%, var(--color-surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 35%, transparent); }
+  70%  { background: color-mix(in srgb, var(--color-success) 8%, var(--color-surface)); box-shadow: none; }
+  100% { background: var(--color-surface); }
+}
+.habit-row--just-done { animation: habit-done-flash 0.45s ease-out forwards; }
+
+/* Check button entrance pop when completing */
+@keyframes check-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.check-btn-done { color: var(--color-success); animation: check-pop 0.25s ease-out; }
+.check-btn:active { transform: scale(0.88); }
 
 .habit-color-bar {
   width: 4px;
@@ -2647,10 +2691,18 @@ a { text-decoration: none; color: inherit; }
   margin: 0 8px;
 }
 
-/* ── 4th stat card color (completion rate) ──────────────── */
-.stat-icon-blue {
-  background: #3b82f622;
-  color: #3b82f6;
+/* ── Stat card icon color variants ──────────────────────── */
+.stat-icon-blue   { background: #3b82f622; color: #3b82f6; }
+.stat-icon-purple { background: #8b5cf622; color: #8b5cf6; }
+.stat-icon-teal   { background: #14b8a622; color: #14b8a6; }
+
+/* 6-card grid: 3 cols on desktop, 2 on tablet, 1 on mobile */
+.stats-cards--6 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) {
+  .stats-cards--6 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .stats-cards--6 { grid-template-columns: 1fr 1fr; }
 }
 
 /* ── Category breakdown header row ─────────────────────── */

@@ -200,6 +200,12 @@ async function initSchema(database: Database): Promise<void> {
     await database.execute("ALTER TABLE habits ADD COLUMN paused_until TEXT");
   }
 
+  // One-time data fix: anchor habits with no explicit start_date to their creation date
+  // so they don't appear in calendar/stats days before they existed.
+  await database.execute(
+    "UPDATE habits SET start_date = substr(created_at, 1, 10) WHERE start_date IS NULL"
+  );
+
   const logCols2 = await database.select<{ name: string }[]>("PRAGMA table_info(logs)");
   if (!logCols2.some((c) => c.name === "value")) {
     await database.execute("ALTER TABLE logs ADD COLUMN value REAL");

@@ -204,8 +204,11 @@
     "byCategory": "Por categoría",
     "habitCount": "{{count}} hábitos",
     "yearOverview": "Resumen anual",
-    "activeDays": "días activos",
-    "perfectDays": "días perfectos",
+    "activeDays": "Días activos",
+    "perfectDays": "Días perfectos",
+    "byDayOfWeek": "Por día de la semana",
+    "rateOverTime": "Tasa de completado a lo largo del tiempo",
+    "noHabitsYet": "Crea algunos hábitos para empezar a rastrear.",
     "less": "Menos",
     "more": "Más"
   },

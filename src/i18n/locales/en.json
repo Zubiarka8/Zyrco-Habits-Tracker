@@ -204,8 +204,11 @@
     "byCategory": "By category",
     "habitCount": "{{count}} habits",
     "yearOverview": "Year overview",
-    "activeDays": "active days",
-    "perfectDays": "perfect days",
+    "activeDays": "Active days",
+    "perfectDays": "Perfect days",
+    "byDayOfWeek": "By day of week",
+    "rateOverTime": "Completion rate over time",
+    "noHabitsYet": "Create some habits to start tracking.",
     "less": "Less",
     "more": "More"
   },
