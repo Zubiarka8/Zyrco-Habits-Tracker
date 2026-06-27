@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { CalendarCheck, ListChecks, BarChart2, Settings } from "lucide-react";
+import { CalendarCheck, ListChecks, BarChart2, CalendarDays, Settings } from "lucide-react";
 import { useTodayProgress } from "../hooks/useTodayProgress";
 
 export function Sidebar() {
@@ -56,6 +56,15 @@ export function Sidebar() {
         >
           <BarChart2 size={18} />
           <span>{t("nav.stats")}</span>
+        </NavLink>
+
+        <NavLink
+          to="/calendar"
+          title={t("nav.calendar")}
+          className={({ isActive }) => `nav-link ${isActive ? "nav-link-active" : ""}`}
+        >
+          <CalendarDays size={18} />
+          <span>{t("nav.calendar")}</span>
         </NavLink>
       </nav>
 

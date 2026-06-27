@@ -4,6 +4,7 @@
     "habits": "Hábitos",
     "todos": "Tareas",
     "stats": "Estadísticas",
+    "calendar": "Calendario",
     "settings": "Ajustes"
   },
   "today": {
@@ -310,6 +311,21 @@
     "msgPoor": "Semana difícil. Mañana es un nuevo comienzo. ¡Tú puedes!",
     "viewStats": "Ver estadísticas",
     "close": "Cerrar"
+  },
+  "calendar": {
+    "today": "Hoy",
+    "noHabitsDay": "No hay hábitos para este día.",
+    "futureNote": "Este día todavía no ha llegado — vuelve cuando sea el momento.",
+    "legendDone": "Completado",
+    "legendPending": "Pendiente",
+    "legendRate": "Tasa de completado",
+    "weekday_mo": "Lu",
+    "weekday_tu": "Ma",
+    "weekday_we": "Mi",
+    "weekday_th": "Ju",
+    "weekday_fr": "Vi",
+    "weekday_sa": "Sá",
+    "weekday_su": "Do"
   },
   "auth": {
     "tagline": "Construye hábitos que perduran",

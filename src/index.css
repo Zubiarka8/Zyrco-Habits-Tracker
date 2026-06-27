@@ -3692,3 +3692,328 @@ a { text-decoration: none; color: inherit; }
   justify-content: flex-end;
   padding-top: 4px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   MONTHLY CALENDAR PAGE
+   ══════════════════════════════════════════════════════════════ */
+.cal-page {
+  padding: 0;
+  max-width: 900px;
+  overflow-x: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+  gap: 8px;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cal-month-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  min-width: 150px;
+  text-align: center;
+  text-transform: capitalize;
+}
+
+/* ── Month summary bar ───────────────────────────────────── */
+.cal-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 10px;
+}
+.cal-summary-bar-wrap { flex: 1; }
+.cal-summary-bar {
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cal-summary-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.cal-summary-stat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.cal-summary-rate { color: var(--color-muted); font-weight: 400; }
+
+/* ── Weekday header ──────────────────────────────────────── */
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 8px 4px;
+}
+.cal-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── Day grid ────────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  padding: 0 8px;
+}
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 58px;
+  transition: filter 0.12s, outline 0.1s;
+  user-select: none;
+  position: relative;
+}
+.cal-cell:hover { filter: brightness(0.93); }
+.cal-cell:focus-visible { outline: 2px solid var(--color-primary); }
+.cal-cell--out {
+  opacity: 0.18;
+  pointer-events: none;
+  cursor: default;
+  min-height: 58px;
+}
+.cal-cell--selected {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+.cal-cell--today-wrap { background: color-mix(in srgb, var(--color-primary) 6%, transparent); }
+
+/* ── Day number circle ───────────────────────────────────── */
+.cal-day-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text);
+  flex-shrink: 0;
+  line-height: 1;
+}
+.cal-day-num--today {
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+}
+
+/* ── Habit dots ──────────────────────────────────────────── */
+.cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  max-width: 40px;
+}
+.cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── All-done checkmark ──────────────────────────────────── */
+.cal-all-done {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  font-size: 8px;
+  font-weight: 800;
+  color: #22c55e;
+  line-height: 1;
+}
+
+/* ── Legend ──────────────────────────────────────────────── */
+.cal-legend {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px 8px;
+  flex-wrap: wrap;
+}
+.cal-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.cal-legend-green-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: rgba(34,197,94,0.16);
+  border: 1px solid rgba(34,197,94,0.35);
+  flex-shrink: 0;
+}
+
+/* ── Day drawer (bottom sheet) ───────────────────────────── */
+.cal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  animation: cal-fade-in 0.15s ease;
+}
+.cal-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border-radius: 18px 18px 0 0;
+  padding: 8px 16px 0;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 201;
+  animation: cal-slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 72vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+}
+.cal-drawer-handle {
+  width: 38px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  margin: 4px auto 14px;
+}
+.cal-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cal-drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cal-drawer-date {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.cal-drawer-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--color-surface-alt);
+  color: var(--color-muted);
+}
+.cal-drawer-chip--done {
+  background: color-mix(in srgb, #22c55e 15%, transparent);
+  color: #22c55e;
+}
+.cal-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.cal-drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+  color: var(--color-text);
+}
+.cal-drawer-row:hover:not(:disabled) { background: var(--color-surface-alt); }
+.cal-drawer-row:disabled { cursor: default; opacity: 0.55; }
+.cal-drawer-row--done .cal-drawer-name {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-border);
+}
+.cal-drawer-icon {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.cal-drawer-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.cal-drawer-check {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.cal-drawer-empty {
+  text-align: center;
+  color: var(--color-muted);
+  padding: 28px 0 16px;
+  font-size: 0.9rem;
+}
+.cal-drawer-future-note {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+@keyframes cal-slide-up {
+  from { transform: translateY(110%); }
+  to   { transform: translateY(0); }
+}
+@keyframes cal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Calendar responsive tweaks ─────────────────────────── */
+@media (max-width: 600px) {
+  .cal-grid { gap: 2px; padding: 0 4px; }
+  .cal-cell { min-height: 52px; padding: 4px 1px 4px; border-radius: 8px; }
+  .cal-day-num { width: 24px; height: 24px; font-size: 11px; }
+  .cal-dot { width: 4px; height: 4px; }
+  .cal-dots { gap: 2px; max-width: 34px; }
+  .cal-month-title { min-width: 130px; font-size: 1rem; }
+  .cal-drawer { border-radius: 14px 14px 0 0; }
+  .cal-all-done { top: 2px; right: 3px; font-size: 7px; }
+}
+@media (max-width: 360px) {
+  .cal-cell { min-height: 46px; }
+  .cal-day-num { width: 20px; height: 20px; font-size: 10px; }
+  .cal-dot { width: 3px; height: 3px; }
+}

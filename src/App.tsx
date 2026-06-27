@@ -9,6 +9,7 @@ import { Habits } from "./pages/Habits";
 import { Stats } from "./pages/Stats";
 import { Settings } from "./pages/Settings";
 import { HabitDetail } from "./pages/HabitDetail";
+import { Calendar } from "./pages/Calendar";
 import { Auth } from "./pages/Auth";
 import { Onboarding } from "./components/Onboarding";
 import { WeeklyDigest } from "./components/WeeklyDigest";
@@ -25,6 +26,7 @@ const router = createHashRouter([
       { path: "habits", element: <Habits /> },
       { path: "habits/:id", element: <HabitDetail /> },
       { path: "stats", element: <Stats /> },
+      { path: "calendar", element: <Calendar /> },
       { path: "settings", element: <Settings /> },
     ],
   },
