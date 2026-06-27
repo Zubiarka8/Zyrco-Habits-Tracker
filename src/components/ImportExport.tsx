@@ -13,15 +13,20 @@ type Status =
   | { type: "error"; msg: string };
 
 /** Save content using the native file-save dialog (File System Access API).
- *  Falls back to anchor.download if the API is unavailable. */
+ *  Falls back to anchor.download if the API is unavailable.
+ *  mimeType may include charset params (e.g. "text/csv;charset=utf-8") —
+ *  the picker only sees the base type so the Accept object stays valid. */
 async function saveFile(filename: string, content: string, mimeType: string): Promise<"saved" | "cancelled" | "fallback"> {
+  // Strip charset / params for the picker's accept map (needs bare MIME type)
+  const baseMime = mimeType.split(";")[0].trim();
+  const ext = filename.split(".").pop() ?? "dat";
+
   if ("showSaveFilePicker" in window) {
     try {
-      const ext = filename.split(".").pop() ?? "json";
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const handle = await (window as any).showSaveFilePicker({
         suggestedName: filename,
-        types: [{ description: mimeType, accept: { [mimeType]: [`.${ext}`] } }],
+        types: [{ description: filename.toUpperCase().split(".").pop(), accept: { [baseMime]: [`.${ext}`] } }],
       });
       const writable = await handle.createWritable();
       await writable.write(content);
@@ -29,10 +34,10 @@ async function saveFile(filename: string, content: string, mimeType: string): Pr
       return "saved";
     } catch (err: unknown) {
       if ((err as { name?: string })?.name === "AbortError") return "cancelled";
-      // API error → fall through to anchor
+      // Unexpected API error — fall through to anchor download
     }
   }
-  // Fallback: browser chooses Downloads folder, no dialog
+  // Fallback: browser saves to Downloads without a dialog
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
