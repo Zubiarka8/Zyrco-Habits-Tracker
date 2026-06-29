@@ -235,7 +235,7 @@ function HabitList({
   logs: Log[];
   categories: Category[];
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
-  toggle: (habitId: string, completed: boolean, value?: number | null) => void;
+  toggle: (habitId: string, completed: boolean, value?: number | null, session?: string) => void;
   skip?: (habitId: string) => void;
   unskip?: (habitId: string) => void;
   isSkipped?: (id: string) => boolean;
@@ -261,31 +261,39 @@ function HabitList({
     }
   };
 
-  const handleToggle = useCallback((habitId: string, completed: boolean, value?: number | null) => {
+  const handleToggle = useCallback((habitId: string, completed: boolean, value?: number | null, session?: string) => {
     if (!completed) {
       // Haptic feedback on completion (mobile/tablet)
       if ("vibrate" in navigator) navigator.vibrate(50);
-      setJustDoneIds((prev) => new Set([...prev, habitId]));
+      const key = session ? `${habitId}::${session}` : habitId;
+      setJustDoneIds((prev) => new Set([...prev, key]));
       setTimeout(() => {
         setJustDoneIds((prev) => {
           const next = new Set(prev);
-          next.delete(habitId);
+          next.delete(key);
           return next;
         });
       }, 400);
     }
-    toggle(habitId, completed, value);
+    toggle(habitId, completed, value, session);
   }, [toggle]);
 
   const getLog = useCallback(
-    (habitId: string) => logs.find((l) => l.habit_id === habitId),
+    (habitId: string, session?: string) => {
+      if (session && session !== "anytime") {
+        return logs.find((l) => l.habit_id === habitId && l.session === session);
+      }
+      return logs.find((l) => l.habit_id === habitId);
+    },
     [logs]
   );
 
   return (
     <div className={`habit-list ${compact ? "habit-list--compact" : ""}`}>
       {habits.map((habit) => {
-        const log       = getLog(habit.id);
+        // For multi-session habits each clone has session set to the specific session
+        const instanceSession = (habit.sessions?.length ?? 1) > 1 ? habit.session : undefined;
+        const log       = getLog(habit.id, instanceSession);
         const completed = log?.completed ?? false;
         const stats     = getHabitStats(habit.id);
         const category  = categories.find((c) => c.id === habit.category_id);
@@ -296,15 +304,17 @@ function HabitList({
         const activeTimer = activeTimers?.get(habit.id) ?? null;
         // Skipped state comes from the skips table (not logs), so isSkipped is the source of truth
         const skipped = isSkipped?.(habit.id) ?? false;
+        const rowKey = instanceSession ? `${habit.id}::${instanceSession}` : habit.id;
+        const justDoneKey = instanceSession ? `${habit.id}::${instanceSession}` : habit.id;
 
         return (
           <div
-            key={habit.id}
+            key={rowKey}
             className={[
               "habit-row",
               completed ? "habit-row-done" : "",
               compact ? "habit-row--compact" : "",
-              justDoneIds.has(habit.id) ? "habit-row--just-done" : "",
+              justDoneIds.has(justDoneKey) ? "habit-row--just-done" : "",
               highlightHabitId === habit.id ? "habit-row--highlight" : "",
             ].filter(Boolean).join(" ")}
             style={{ "--habit-color": habit.color } as React.CSSProperties}
@@ -346,7 +356,7 @@ function HabitList({
                 </button>
                 <button
                   className={`check-btn ${completed ? (habit.type === "bad" ? "check-btn-avoided" : "check-btn-done") : ""}`}
-                  onClick={() => { handleToggle(habit.id, completed); setExpandedNumeric(null); }}
+                  onClick={() => { handleToggle(habit.id, completed, undefined, instanceSession); setExpandedNumeric(null); }}
                   aria-label={completed ? "Uncheck" : habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
                   title={habit.type === "bad" ? t("today.checkBad") : t("today.checkGood")}
                 >
@@ -359,7 +369,7 @@ function HabitList({
                 className={`check-btn ${completed ? "check-btn-done" : ""}`}
                 onClick={() => {
                   if (!completed) setExpandedNumeric(habit.id === expandedNumeric ? null : habit.id);
-                  else { handleToggle(habit.id, completed); setExpandedNumeric(null); }
+                  else { handleToggle(habit.id, completed, undefined, instanceSession); setExpandedNumeric(null); }
                 }}
                 title={`${log?.value ?? 0} / ${habit.completion_target ?? "?"} ${habit.completion_unit ?? ""}`}
               >
@@ -392,6 +402,11 @@ function HabitList({
               <div className="habit-name-row">
                 <span className="habit-icon">{habit.icon}</span>
                 <span className="habit-name">{habit.name}</span>
+                {instanceSession && instanceSession !== "anytime" && (
+                  <span className="habit-session-badge">
+                    {SESSION_EMOJI[instanceSession as keyof typeof SESSION_EMOJI] ?? ""}
+                  </span>
+                )}
                 {stats.streak > 0 && <StreakBadge streak={stats.streak} atRisk={atRisk} />}
                 {stats.strengthScore > 0 && (
                   <span
@@ -423,7 +438,7 @@ function HabitList({
                   habit={habit}
                   currentValue={log?.value ?? null}
                   onConfirm={(value) => {
-                    handleToggle(habit.id, true, value);
+                    handleToggle(habit.id, true, value, instanceSession);
                     setExpandedNumeric(null);
                   }}
                   onClose={() => setExpandedNumeric(null)}
@@ -1177,8 +1192,8 @@ export function Today() {
 
   // Wraps toggle with haptic-free undo toast (haptic fires inside HabitList.handleToggle)
   const toggleWithUndo = useCallback(
-    (habitId: string, completed: boolean, value?: number | null) => {
-      toggle(habitId, completed, value);
+    (habitId: string, completed: boolean, value?: number | null, session?: string) => {
+      toggle(habitId, completed, value, session);
       if (!completed) {
         const habit = habits.find((h) => h.id === habitId);
         if (habit) {
@@ -1326,16 +1341,29 @@ export function Today() {
     return true;
   });
   // Excluded habits (type='exclude') are completely invisible — not even in the skipped list
-  const allDueHabits  = activeDayHabits.filter((h) => isHabitDueOnDay(h, selectedDateObj) && !isExcluded(h.id));
+  const allDueHabitsBase = activeDayHabits.filter((h) => isHabitDueOnDay(h, selectedDateObj) && !isExcluded(h.id));
+  // Expand multi-session habits: a habit with sessions ["morning","evening"] becomes two clones
+  const allDueHabits = allDueHabitsBase.flatMap((h) => {
+    const sessArr = h.sessions ?? [h.session];
+    return sessArr.length > 1
+      ? sessArr.map((s) => ({ ...h, session: s as typeof h.session }))
+      : [h];
+  });
   const dueHabits     = allDueHabits.filter((h) => !isSkipped(h.id));
   const skippedHabits = allDueHabits.filter((h) => isSkipped(h.id));
 
   const getLog = useCallback(
-    (habitId: string) => logs.find((l) => l.habit_id === habitId),
+    (habitId: string, session?: string) => {
+      if (session && session !== "anytime") {
+        return logs.find((l) => l.habit_id === habitId && l.session === session);
+      }
+      return logs.find((l) => l.habit_id === habitId);
+    },
     [logs]
   );
 
-  const done  = dueHabits.filter((h) => getLog(h.id)?.completed).length;
+  // For multi-session habit, each session instance must be completed independently
+  const done  = dueHabits.filter((h) => getLog(h.id, (h.sessions?.length ?? 1) > 1 ? h.session : undefined)?.completed).length;
   const total = dueHabits.length;
 
   // R-04: check milestone streaks and fire a toast once per session per habit+milestone
@@ -1462,10 +1490,11 @@ export function Today() {
     return arr;
   })();
 
-  // Split into pending / done / missed for separate sections
-  const missedHabits  = sortedDue.filter((h) => isMissed(h.id) && !getLog(h.id)?.completed);
-  const pendingHabits = sortedDue.filter((h) => !getLog(h.id)?.completed && !isMissed(h.id));
-  const doneHabits    = sortedDue.filter((h) =>  getLog(h.id)?.completed);
+  // Split into pending / done / missed — use session-aware getLog for multi-session habits
+  const getInstanceLog = (h: Habit) => getLog(h.id, (h.sessions?.length ?? 1) > 1 ? h.session : undefined);
+  const missedHabits  = sortedDue.filter((h) => isMissed(h.id) && !getInstanceLog(h)?.completed);
+  const pendingHabits = sortedDue.filter((h) => !getInstanceLog(h)?.completed && !isMissed(h.id));
+  const doneHabits    = sortedDue.filter((h) => getInstanceLog(h)?.completed);
 
   // Long-press on habit-info area opens the context menu at pointer position
   const handleLongPress = (habit: Habit, pos: { x: number; y: number }) => {

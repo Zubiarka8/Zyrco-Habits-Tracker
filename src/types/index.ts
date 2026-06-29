@@ -25,8 +25,10 @@ export interface Habit {
   color: string;
   icon: string;
   type: "good" | "bad" | "normal";
-  /** P-03: time-of-day grouping for Today page */
+  /** Primary session — first element of sessions[], kept for display/grouping compat */
   session: "morning" | "afternoon" | "evening" | "anytime";
+  /** All sessions this habit should appear in. Optional on creation (defaults to [session]). */
+  sessions?: string[];
   /** P-04: how completion is tracked for this habit */
   completion_type: "binary" | "numeric" | "timer";
   /** P-04: target quantity (e.g. 8 for "8 glasses of water") */
@@ -49,6 +51,8 @@ export interface Log {
   id: string;
   habit_id: string;
   date: string;
+  /** Session instance for multi-session habits; '' for legacy single-session logs */
+  session: string;
   completed: boolean;
   /** P-04: numeric value logged (e.g. 6 glasses, 25 minutes) */
   value: number | null;

@@ -590,6 +590,7 @@ a { text-decoration: none; color: inherit; }
 .habit-icon { font-size: 18px; flex-shrink: 0; }
 .habit-name { font-weight: 600; font-size: 15px; color: var(--color-text); }
 .habit-desc { font-size: 13px; color: var(--color-muted); }
+.habit-session-badge { font-size: 13px; opacity: 0.7; flex-shrink: 0; }
 
 .habit-meta {
   display: flex;

@@ -126,6 +126,7 @@
     "session_afternoon": "Tarde",
     "session_evening": "Noche",
     "session_anytime": "Cualquier momento",
+    "sessionsMultiHint": "Este hábito aparecerá una vez por cada franja seleccionada.",
     "completionType": "Tipo de completado",
     "completionType_binary": "Hecho / No hecho",
     "completionType_numeric": "Numérico",

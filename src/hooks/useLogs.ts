@@ -55,16 +55,19 @@ export function useDateLogs(date: string) {
 
   useEffect(() => { load(); }, [load]);
 
-  const toggle = useCallback(async (habitId: string, currentCompleted: boolean, value?: number | null) => {
+  const toggle = useCallback(async (habitId: string, currentCompleted: boolean, value?: number | null, session?: string) => {
     const next = !currentCompleted;
+    const sess = session ?? "";
     try {
-      await upsertLog(habitId, date, next, null, value ?? null);
+      await upsertLog(habitId, date, next, null, value ?? null, sess);
       notifyLogChanged();
       setLogs((prev) => {
-        const existing = prev.find((l) => l.habit_id === habitId);
+        const existing = prev.find((l) => l.habit_id === habitId && (l.session ?? "") === sess);
         if (existing) {
           return prev.map((l) =>
-            l.habit_id === habitId ? { ...l, completed: next, value: value ?? l.value } : l
+            l.habit_id === habitId && (l.session ?? "") === sess
+              ? { ...l, completed: next, value: value ?? l.value }
+              : l
           );
         }
         return [
@@ -73,6 +76,7 @@ export function useDateLogs(date: string) {
             id: crypto.randomUUID(),
             habit_id: habitId,
             date,
+            session: sess,
             completed: next,
             value: value ?? null,
             note: null,
@@ -82,7 +86,7 @@ export function useDateLogs(date: string) {
       });
     } catch (err) {
       console.error(
-        `useDateLogs toggle failed — habit ${habitId}, date ${date}:`,
+        `useDateLogs toggle failed — habit ${habitId}, date ${date}, session ${sess}:`,
         err
       );
     }
@@ -105,6 +109,7 @@ export function useDateLogs(date: string) {
             id: crypto.randomUUID(),
             habit_id: habitId,
             date,
+            session: "",
             completed: true,
             value: null,
             note,
@@ -138,6 +143,7 @@ export function useDateLogs(date: string) {
             id: crypto.randomUUID(),
             habit_id: habitId,
             date,
+            session: "",
             completed: false,
             value: null,
             note: null,

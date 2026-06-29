@@ -126,6 +126,7 @@
     "session_afternoon": "Afternoon",
     "session_evening": "Evening",
     "session_anytime": "Anytime",
+    "sessionsMultiHint": "This habit will appear once per selected time slot.",
     "completionType": "Completion type",
     "completionType_binary": "Done / Not done",
     "completionType_numeric": "Numeric",

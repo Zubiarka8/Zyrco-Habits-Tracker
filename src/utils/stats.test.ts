@@ -50,6 +50,7 @@ function makeLog(habitId: string, date: string, completed = true): Log {
     id: crypto.randomUUID(),
     habit_id: habitId,
     date,
+    session: "",
     completed,
     value: null,
     note: null,

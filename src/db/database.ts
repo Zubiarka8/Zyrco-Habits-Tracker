@@ -231,6 +231,38 @@ async function initSchema(database: Database): Promise<void> {
     );
   }
 
+  // Migration: add sessions column (JSON array) to habits — multi-session support
+  if (!habitColNames.has("sessions")) {
+    await database.execute("ALTER TABLE habits ADD COLUMN sessions TEXT");
+    // Seed from legacy session column so existing habits keep their session
+    await database.execute(
+      "UPDATE habits SET sessions = '[\"' || COALESCE(session, 'anytime') || '\"]' WHERE sessions IS NULL"
+    );
+  }
+
+  // Migration: add session column to logs + recreate table with new UNIQUE(habit_id,date,session)
+  const logColsCheck = await database.select<{ name: string }[]>("PRAGMA table_info(logs)");
+  if (!logColsCheck.some((c) => c.name === "session")) {
+    // Recreate logs with session column and the new composite unique constraint
+    await database.execute(`CREATE TABLE IF NOT EXISTS logs_new (
+      id TEXT PRIMARY KEY,
+      habit_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      session TEXT NOT NULL DEFAULT '',
+      completed INTEGER NOT NULL DEFAULT 0,
+      value REAL,
+      note TEXT,
+      user_id TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE(habit_id, date, session)
+    )`);
+    await database.execute(
+      "INSERT INTO logs_new (id, habit_id, date, session, completed, value, note, user_id, created_at) SELECT id, habit_id, date, '', completed, value, note, user_id, created_at FROM logs"
+    );
+    await database.execute("DROP TABLE logs");
+    await database.execute("ALTER TABLE logs_new RENAME TO logs");
+  }
+
   // Migration: misses table — habits that were due but explicitly marked as not done by the user
   await database.execute(`
     CREATE TABLE IF NOT EXISTS misses (
@@ -438,13 +470,17 @@ export async function deleteCategory(id: string): Promise<void> {
 
 // ---- Habits ----
 
-type RawHabit = Omit<Habit, "target_days" | "reminder_enabled" | "archived"> & {
+type RawHabit = Omit<Habit, "target_days" | "reminder_enabled" | "archived" | "sessions"> & {
   target_days: string | null;
   reminder_enabled: number;
   archived: number;
+  sessions: string | null; // JSON array in DB
 };
 
 function parseHabit(raw: RawHabit): Habit {
+  const sessions: string[] = raw.sessions
+    ? JSON.parse(raw.sessions)
+    : [raw.session ?? "anytime"];
   return {
     ...raw,
     type: (raw.type as Habit["type"]) ?? "normal",
@@ -455,7 +491,8 @@ function parseHabit(raw: RawHabit): Habit {
     target_days: raw.target_days ? JSON.parse(raw.target_days) : null,
     reminder_enabled: raw.reminder_enabled === 1,
     archived: raw.archived === 1,
-    session: (raw.session as Habit["session"]) ?? "anytime",
+    sessions,
+    session: (sessions[0] ?? "anytime") as Habit["session"],
     completion_type: (raw.completion_type as Habit["completion_type"]) ?? "binary",
     completion_target: raw.completion_target ?? null,
     completion_unit: raw.completion_unit ?? null,
@@ -481,13 +518,14 @@ export async function insertHabit(
   const db = await getDb();
   const id = crypto.randomUUID();
   const created_at = new Date().toISOString();
+  const sessions = data.sessions?.length ? data.sessions : [data.session ?? "anytime"];
   const sql = `INSERT INTO habits
       (id, name, description, category_id, frequency, custom_type, target_days,
        interval_days, start_date, end_date, color, icon,
-       type, session, completion_type, completion_target, completion_unit,
+       type, session, sessions, completion_type, completion_target, completion_unit,
        reminder_enabled, reminder_time, time_start, time_end,
        created_at, archived, user_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,0,$23)`;
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,0,$24)`;
   const params = [
     id,
     data.name,
@@ -502,7 +540,8 @@ export async function insertHabit(
     data.color,
     data.icon,
     data.type,
-    data.session ?? "anytime",
+    sessions[0] ?? "anytime",
+    JSON.stringify(sessions),
     data.completion_type ?? "binary",
     data.completion_target ?? null,
     data.completion_unit ?? null,
@@ -535,6 +574,11 @@ export async function updateHabit(
   if ("archived" in normalized) {
     normalized.archived = normalized.archived ? 1 : 0;
   }
+  if ("sessions" in normalized && Array.isArray(normalized.sessions)) {
+    // Keep session (legacy) in sync with first element
+    normalized.session = (normalized.sessions as string[])[0] ?? "anytime";
+    normalized.sessions = JSON.stringify(normalized.sessions);
+  }
   const fields = Object.keys(normalized)
     .map((k, i) => `${k} = $${i + 2}`)
     .join(", ");
@@ -553,10 +597,10 @@ export async function deleteHabit(id: string): Promise<void> {
 
 // ---- Logs ----
 
-type RawLog = Omit<Log, "completed"> & { completed: number };
+type RawLog = Omit<Log, "completed"> & { completed: number; session: string };
 
 function parseLog(raw: RawLog): Log {
-  return { ...raw, completed: raw.completed === 1, value: raw.value ?? null };
+  return { ...raw, completed: raw.completed === 1, value: raw.value ?? null, session: raw.session ?? "" };
 }
 
 export async function fetchLogsForDate(date: string): Promise<Log[]> {
@@ -613,23 +657,28 @@ export async function upsertLog(
   date: string,
   completed: boolean,
   note?: string | null,
-  value?: number | null
+  value?: number | null,
+  session?: string
 ): Promise<void> {
   const db = await getDb();
   const id = crypto.randomUUID();
   const created_at = new Date().toISOString();
-  const sql = `INSERT INTO logs (id, habit_id, date, completed, note, value, created_at, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     ON CONFLICT(habit_id, date) DO UPDATE SET completed = $4, note = COALESCE($5, note), value = COALESCE($6, value)`;
-  const params = [id, habitId, date, completed ? 1 : 0, note ?? null, value ?? null, created_at, getLocalUserId()];
+  const sess = session ?? "";
+  const sql = `INSERT INTO logs (id, habit_id, date, session, completed, note, value, created_at, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT(habit_id, date, session) DO UPDATE SET completed = $5, note = COALESCE($6, note), value = COALESCE($7, value)`;
+  const params = [id, habitId, date, sess, completed ? 1 : 0, note ?? null, value ?? null, created_at, getLocalUserId()];
   await db.execute(sql, params);
   syncToTurso(sql, params);
 }
 
-export async function deleteLogForDate(habitId: string, date: string): Promise<void> {
+export async function deleteLogForDate(habitId: string, date: string, session?: string): Promise<void> {
   const db = await getDb();
-  const sql = "DELETE FROM logs WHERE habit_id = $1 AND date = $2";
-  const params = [habitId, date];
+  // When session is provided delete only that session's log; otherwise delete all sessions for the day
+  const sql = session !== undefined
+    ? "DELETE FROM logs WHERE habit_id = $1 AND date = $2 AND session = $3"
+    : "DELETE FROM logs WHERE habit_id = $1 AND date = $2";
+  const params = session !== undefined ? [habitId, date, session] : [habitId, date];
   await db.execute(sql, params);
   syncToTurso(sql, params);
 }

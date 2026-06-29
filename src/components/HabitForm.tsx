@@ -193,6 +193,7 @@ function SchedulePreview({
     icon: "⭐",
     type: "normal" as const,
     session: "anytime" as const,
+    sessions: ["anytime"],
     completion_type: "binary" as const,
     completion_target: null,
     completion_unit: null,
@@ -280,7 +281,9 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
   const [timeEndEnabled, setTimeEndEnabled] = useState(!!initial?.time_end);
   const [timeEnd, setTimeEnd]         = useState(initial?.time_end ?? "09:00");
 
-  const [session, setSession] = useState<Habit["session"]>(initial?.session ?? "anytime");
+  const [sessions, setSessions] = useState<string[]>(
+    initial?.sessions?.length ? initial.sessions : [initial?.session ?? "anytime"]
+  );
   const [completionType, setCompletionType] = useState<Habit["completion_type"]>(
     initial?.completion_type ?? "binary"
   );
@@ -303,7 +306,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
     setIntervalDays(tmpl.interval_days ?? 2);
     setColor(tmpl.color);
     setIcon(tmpl.icon);
-    setSession(tmpl.session);
+    setSessions(tmpl.sessions?.length ? tmpl.sessions : [tmpl.session]);
     setCompletionType(tmpl.completion_type);
     setCompletionTarget(tmpl.completion_target ?? 1);
     setCompletionUnit(tmpl.completion_unit ?? "");
@@ -391,7 +394,8 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       color,
       icon,
       type: habitType,
-      session,
+      sessions,
+      session: (sessions[0] ?? "anytime") as Habit["session"],
       completion_type: completionType,
       completion_target: completionType !== "binary" ? completionTarget : null,
       completion_unit: completionType !== "binary" && completionUnit.trim() ? completionUnit.trim() : null,
@@ -738,22 +742,37 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
         </div>
       </div>
 
-      {/* Session — time-of-day grouping */}
+      {/* Sessions — multi-select time-of-day grouping */}
       <div className="form-field">
         <label className="field-label">{t("habits.session")}</label>
         <div className="session-toggle">
-          {(["morning", "afternoon", "evening", "anytime"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`session-btn ${session === s ? "session-btn--active" : ""}`}
-              style={session === s ? { borderColor: color, color } : undefined}
-              onClick={() => setSession(s)}
-            >
-              {t(`habits.session_${s}`)}
-            </button>
-          ))}
+          {(["morning", "afternoon", "evening", "anytime"] as const).map((s) => {
+            const active = sessions.includes(s);
+            return (
+              <button
+                key={s}
+                type="button"
+                className={`session-btn ${active ? "session-btn--active" : ""}`}
+                style={active ? { borderColor: color, color } : undefined}
+                onClick={() => {
+                  if (s === "anytime") {
+                    setSessions(["anytime"]);
+                  } else {
+                    setSessions((prev) => {
+                      const without = prev.filter((x) => x !== "anytime" && x !== s);
+                      return active ? (without.length ? without : ["anytime"]) : [...without, s];
+                    });
+                  }
+                }}
+              >
+                {t(`habits.session_${s}`)}
+              </button>
+            );
+          })}
         </div>
+        {sessions.length > 1 && (
+          <p className="field-hint">{t("habits.sessionsMultiHint")}</p>
+        )}
       </div>
 
       {/* Completion type */}
