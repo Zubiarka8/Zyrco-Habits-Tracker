@@ -1304,12 +1304,15 @@ export function Today() {
     (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       const rect = e.currentTarget.getBoundingClientRect();
-      // Flip upward when there isn't enough room below (navbar ~56px + dropdown ~180px)
-      const flipped = rect.bottom + 180 > window.innerHeight - 56;
+      // Flip upward when there isn't enough room below (navbar ~56px + dropdown ~350px)
+      const MENU_HEIGHT = 350;
+      const flipped = rect.bottom + MENU_HEIGHT > window.innerHeight - 56;
+      // When flipped, clamp so the menu doesn't overflow the top of the viewport
+      const yUp = Math.max(rect.top, MENU_HEIGHT + 8);
       setMenu((prev) =>
         prev?.habitId === habit.id
           ? null
-          : { habitId: habit.id, x: rect.right, y: flipped ? rect.top : rect.bottom, flipped }
+          : { habitId: habit.id, x: rect.right, y: flipped ? yUp : rect.bottom, flipped }
       );
     },
     []
