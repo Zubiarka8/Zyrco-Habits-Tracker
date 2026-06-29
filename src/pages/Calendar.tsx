@@ -11,6 +11,7 @@ import { es } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, X, CheckCircle2, Circle } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
 import { useCalendarLogs, useDateLogs } from "../hooks/useLogs";
+import { useRangeSkips } from "../hooks/useSkips";
 import { isHabitDueOnDay } from "../utils/schedule";
 import type { Habit } from "../types";
 
@@ -151,6 +152,7 @@ export function Calendar() {
   const endStr = useMemo(() => format(monthEnd, "yyyy-MM-dd"), [monthEnd]);
 
   const { logs } = useCalendarLogs(startStr, endStr);
+  const { rangeSkips } = useRangeSkips(startStr, endStr);
 
   // dateStr → Log[] map for O(1) lookups
   const logMap = useMemo(() => {
@@ -177,12 +179,18 @@ export function Calendar() {
   const getDueHabits = useCallback(
     (day: Date) => {
       const dateStr = format(day, "yyyy-MM-dd");
+      const excludedOnDay = new Set(
+        rangeSkips
+          .filter((s) => s.date === dateStr && s.type === "exclude")
+          .map((s) => s.habit_id)
+      );
       return activeHabits.filter((h) => {
+        if (excludedOnDay.has(h.id)) return false;
         if (h.paused_until && h.paused_until > dateStr) return false;
         return isHabitDueOnDay(h, day);
       });
     },
-    [activeHabits]
+    [activeHabits, rangeSkips]
   );
 
   // Auto-scroll to today's row when viewing the current month
