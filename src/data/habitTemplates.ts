@@ -1,10 +1,53 @@
-import type { Habit } from "../types";
+import type { Habit, Category } from "../types";
 
 export type HabitTemplate = Omit<Habit, "id" | "created_at" | "archived" | "paused_until"> & {
   templateCategory: string;
   name_es: string;
   description_es: string | null;
 };
+
+/** Canonical category definition for each templateCategory key. */
+export interface TemplateCategoryDef {
+  name: string;
+  name_es: string;
+  color: string;
+  icon: string;
+}
+
+export const TEMPLATE_CATEGORY_MAP: Record<string, TemplateCategoryDef> = {
+  Health:     { name: "Health",       name_es: "Salud",          color: "#22c55e", icon: "❤️" },
+  Fitness:    { name: "Fitness",      name_es: "Fitness",        color: "#f97316", icon: "💪" },
+  Mind:       { name: "Mind",         name_es: "Mente",          color: "#8b5cf6", icon: "🧠" },
+  Work:       { name: "Work",         name_es: "Trabajo",        color: "#3b82f6", icon: "💼" },
+  Social:     { name: "Social",       name_es: "Social",         color: "#ec4899", icon: "🤝" },
+  Focus:      { name: "Focus",        name_es: "Concentración",  color: "#eab308", icon: "🎯" },
+};
+
+/**
+ * Finds an existing category matching the template's category name or creates it.
+ * Returns the category id to assign to the habit.
+ */
+export async function resolveTemplateCategory(
+  templateCategory: string,
+  existingCategories: Category[],
+  lang: string,
+  insertCategoryFn: (data: Omit<Category, "id" | "created_at">) => Promise<Category>
+): Promise<string | null> {
+  const def = TEMPLATE_CATEGORY_MAP[templateCategory];
+  if (!def) return null;
+
+  const localName = lang === "es" ? def.name_es : def.name;
+  // Match by name (case-insensitive) to avoid duplicates if user already has one
+  const existing = existingCategories.find(
+    (c) => c.name.toLowerCase() === localName.toLowerCase() ||
+           c.name.toLowerCase() === def.name.toLowerCase() ||
+           c.name.toLowerCase() === def.name_es.toLowerCase()
+  );
+  if (existing) return existing.id;
+
+  const created = await insertCategoryFn({ name: localName, color: def.color, icon: def.icon });
+  return created.id;
+}
 
 export const HABIT_TEMPLATES: HabitTemplate[] = [
   // ── Health ───────────────────────────────────────────────

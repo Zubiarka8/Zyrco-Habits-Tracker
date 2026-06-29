@@ -14,6 +14,8 @@ import { RetroLogModal } from "../components/RetroLogModal";
 import { SkeletonHabitCard } from "../components/Skeleton";
 import type { Habit } from "../types";
 import type { HabitTemplate } from "../data/habitTemplates";
+import { resolveTemplateCategory } from "../data/habitTemplates";
+import { insertCategory } from "../db/database";
 
 type MenuState = { habitId: string; x: number; y: number } | null;
 
@@ -45,13 +47,19 @@ export function Habits() {
     setFormOpen(true);
   };
 
-  const handleTemplateSelect = useCallback((tmpl: HabitTemplate) => {
+  const handleTemplateSelect = useCallback(async (tmpl: HabitTemplate) => {
     const isEs = i18n.language.startsWith("es");
-    // Auto-match the template's category label to an existing user category (case-insensitive)
-    const tplCat = tmpl.templateCategory.toLowerCase();
-    const matched = categories.find((c) =>
-      c.name.toLowerCase().includes(tplCat) || tplCat.includes(c.name.toLowerCase())
-    );
+    let categoryId: string | null = null;
+    try {
+      categoryId = await resolveTemplateCategory(
+        tmpl.templateCategory,
+        categories,
+        i18n.language,
+        insertCategory
+      );
+    } catch (err) {
+      console.error("handleTemplateSelect: failed to resolve category:", err);
+    }
     const initial: Partial<Habit> = {
       name: isEs ? tmpl.name_es : tmpl.name,
       description: isEs ? (tmpl.description_es ?? null) : (tmpl.description ?? null),
@@ -62,7 +70,7 @@ export function Habits() {
       target_days: tmpl.target_days,
       interval_days: tmpl.interval_days,
       start_date: format(new Date(), "yyyy-MM-dd"),
-      category_id: matched?.id ?? null,
+      category_id: categoryId,
       type: tmpl.type,
       session: tmpl.session,
       completion_type: tmpl.completion_type,

@@ -15,7 +15,8 @@ import { Onboarding } from "./components/Onboarding";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WeeklyDigest } from "./components/WeeklyDigest";
 import type { HabitTemplate } from "./data/habitTemplates";
-import { insertHabit, fetchHabits, fetchAllLogs } from "./db/database";
+import { resolveTemplateCategory } from "./data/habitTemplates";
+import { insertHabit, insertCategory, fetchCategories, fetchHabits, fetchAllLogs } from "./db/database";
 import { format } from "date-fns";
 
 const router = createHashRouter([
@@ -73,10 +74,23 @@ function AppContent() {
     localStorage.setItem("zyrco-onboarding-done", "1");
     if (template) {
       try {
+        const existingCategories = await fetchCategories();
+        const lang = localStorage.getItem("zyrco-language") ?? "en";
+        let categoryId: string | null = null;
+        try {
+          categoryId = await resolveTemplateCategory(
+            template.templateCategory,
+            existingCategories,
+            lang,
+            insertCategory
+          );
+        } catch (catErr) {
+          console.error("Onboarding: failed to resolve category:", catErr);
+        }
         const habit = await insertHabit({
           name: template.name,
           description: template.description ?? null,
-          category_id: null,
+          category_id: categoryId,
           color: template.color,
           icon: template.icon,
           frequency: template.frequency,
