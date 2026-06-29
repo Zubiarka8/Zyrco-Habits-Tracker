@@ -8,7 +8,7 @@ import {
   format, startOfMonth, eachDayOfInterval, getDaysInMonth, subDays, parseISO,
 } from "date-fns";
 import { es as dateEs } from "date-fns/locale";
-import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, XCircle, X } from "lucide-react";
+import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, X } from "lucide-react";
 import { useStats } from "../hooks/useStats";
 import { fetchMissesForRange, fetchSkipsForRange } from "../db/database";
 import { useCategories } from "../hooks/useCategories";
@@ -644,42 +644,6 @@ export function Stats() {
         </div>
       )}
 
-      {/* Missed habits section */}
-      {missCountByHabit.size > 0 && (
-        <div className="per-habit-section">
-          <h2 className="section-title">
-            <XCircle size={16} style={{ display: "inline", marginRight: 6, color: "var(--color-danger, #ef4444)" }} />
-            {t("stats.missedHabits")}
-          </h2>
-          <p className="text-muted" style={{ fontSize: "0.8rem", marginBottom: 10 }}>
-            {t("stats.missedHabitsDesc")}
-          </p>
-          <div className="per-habit-list">
-            {activeHabits
-              .filter((h) => (missCountByHabit.get(h.id) ?? 0) > 0)
-              .sort((a, b) => (missCountByHabit.get(b.id) ?? 0) - (missCountByHabit.get(a.id) ?? 0))
-              .map((h) => {
-                const count = missCountByHabit.get(h.id) ?? 0;
-                return (
-                  <div key={h.id} className="per-habit-row">
-                    <div className="habit-card-icon" style={{ background: h.color + "22" }}>
-                      <span style={{ fontSize: 18 }}>{h.icon}</span>
-                    </div>
-                    <div className="per-habit-info">
-                      <span className="habit-name">{h.name}</span>
-                      <span className="text-muted" style={{ fontSize: "0.75rem" }}>
-                        {t("stats.missedTimes", { count })}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-danger, #ef4444)" }}>
-                      {count}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
 
       {/* Navigate to habits if none created yet */}
       {activeHabits.length === 0 && (
