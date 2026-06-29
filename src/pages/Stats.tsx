@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -7,8 +7,9 @@ import {
 import {
   format, startOfMonth, eachDayOfInterval, getDaysInMonth, subDays, parseISO,
 } from "date-fns";
-import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays } from "lucide-react";
+import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, XCircle } from "lucide-react";
 import { useStats } from "../hooks/useStats";
+import { fetchMissesForRange } from "../db/database";
 import { useCategories } from "../hooks/useCategories";
 import { isHabitDueOnDay } from "../utils/schedule";
 import { StreakBadge } from "../components/StreakBadge";
@@ -44,6 +45,18 @@ export function Stats() {
       format(subDays(now, period - 1 - i), "yyyy-MM-dd")
     );
   }, [period]);
+
+  const [missCountByHabit, setMissCountByHabit] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (periodDates.length === 0) return;
+    fetchMissesForRange(periodDates[0], periodDates[periodDates.length - 1])
+      .then((rows) => {
+        const counts = new Map<string, number>();
+        rows.forEach((r) => counts.set(r.habit_id, (counts.get(r.habit_id) ?? 0) + 1));
+        setMissCountByHabit(counts);
+      })
+      .catch((err) => console.error("Stats fetchMissesForRange failed:", err));
+  }, [periodDates]);
 
   const rateChartData = useMemo(() => {
     if (habits.length === 0) return [];
@@ -462,6 +475,43 @@ export function Stats() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Missed habits section */}
+      {missCountByHabit.size > 0 && (
+        <div className="per-habit-section">
+          <h2 className="section-title">
+            <XCircle size={16} style={{ display: "inline", marginRight: 6, color: "var(--color-danger, #ef4444)" }} />
+            {t("stats.missedHabits")}
+          </h2>
+          <p className="text-muted" style={{ fontSize: "0.8rem", marginBottom: 10 }}>
+            {t("stats.missedHabitsDesc")}
+          </p>
+          <div className="per-habit-list">
+            {habits
+              .filter((h) => (missCountByHabit.get(h.id) ?? 0) > 0)
+              .sort((a, b) => (missCountByHabit.get(b.id) ?? 0) - (missCountByHabit.get(a.id) ?? 0))
+              .map((h) => {
+                const count = missCountByHabit.get(h.id) ?? 0;
+                return (
+                  <div key={h.id} className="per-habit-row">
+                    <div className="habit-card-icon" style={{ background: h.color + "22" }}>
+                      <span style={{ fontSize: 18 }}>{h.icon}</span>
+                    </div>
+                    <div className="per-habit-info">
+                      <span className="habit-name">{h.name}</span>
+                      <span className="text-muted" style={{ fontSize: "0.75rem" }}>
+                        {t("stats.missedTimes", { count })}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-danger, #ef4444)" }}>
+                      {count}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

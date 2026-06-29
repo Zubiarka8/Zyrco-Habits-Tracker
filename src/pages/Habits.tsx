@@ -107,7 +107,11 @@ export function Habits() {
   };
 
   const handleArchive = async (habit: Habit) => {
-    await archive(habit.id, !habit.archived);
+    try {
+      await archive(habit.id, !habit.archived);
+    } catch (err) {
+      console.error(`Habits handleArchive failed — habit ${habit.id}:`, err);
+    }
     setMenu(null);
   };
 
@@ -118,7 +122,11 @@ export function Habits() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    await remove(deleteTarget.id);
+    try {
+      await remove(deleteTarget.id);
+    } catch (err) {
+      console.error(`Habits handleDelete failed — habit ${deleteTarget.id}:`, err);
+    }
     setDeleteTarget(null);
   };
 

@@ -16,16 +16,18 @@ import {
 import {
   CheckCircle2, Circle, MessageSquare, Plus,
   MoreVertical, Edit2, Archive, ArchiveRestore, Trash2, Clock,
-  CalendarOff, RotateCcw, ArrowUpDown, Minus, Timer, Play, Square, X,
+  CalendarOff, RotateCcw, ArrowUpDown, Minus, Timer, Play, Square, X, XCircle,
 } from "lucide-react";
 import { useHabits } from "../hooks/useHabits";
+import { useDateLocale } from "../hooks/useDateLocale";
 import { useDateLogs, useCalendarLogs } from "../hooks/useLogs";
 import { useCategories } from "../hooks/useCategories";
 import { useStats } from "../hooks/useStats";
 import { useReminders } from "../hooks/useReminders";
 import { useSkips, useRangeSkips } from "../hooks/useSkips";
+import { useMisses } from "../hooks/useMisses";
 import { useToast } from "../context/ToastContext";
-import { upsertLog } from "../db/database";
+import { upsertLog, deleteLogForDate } from "../db/database";
 import { NoteModal } from "../components/NoteModal";
 import { StreakBadge } from "../components/StreakBadge";
 import { Modal } from "../components/Modal";
@@ -35,7 +37,7 @@ import { isHabitDueOnDay } from "../utils/schedule";
 import { SkeletonHabitRow } from "../components/Skeleton";
 import type { Habit, Log, Category } from "../types";
 
-type MenuState = { habitId: string; x: number; y: number } | null;
+type MenuState = { habitId: string; x: number; y: number; flipped?: boolean } | null;
 type HabitSort = "default" | "streak-desc" | "name-asc";
 
 // ── NumericInput ──────────────────────────────────────────
@@ -217,6 +219,8 @@ function HabitList({
   getHabitStats,
   toggle,
   skip,
+  unskip,
+  isSkipped,
   onNoteClick,
   onHabitMenu,
   onLongPress,
@@ -233,6 +237,8 @@ function HabitList({
   getHabitStats: ReturnType<typeof import("../hooks/useStats").useStats>["getHabitStats"];
   toggle: (habitId: string, completed: boolean, value?: number | null) => void;
   skip?: (habitId: string) => void;
+  unskip?: (habitId: string) => void;
+  isSkipped?: (id: string) => boolean;
   onNoteClick: (habit: Habit) => void;
   onHabitMenu: (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => void;
   onLongPress?: (habit: Habit, pos: { x: number; y: number }) => void;
@@ -288,8 +294,8 @@ function HabitList({
         const isTimer   = habit.completion_type === "timer";
         const isBinary  = !isNumeric && !isTimer;
         const activeTimer = activeTimers?.get(habit.id) ?? null;
-        // A log with completed=false means explicitly skipped (distinct from no log at all)
-        const skipped = log !== undefined && !log.completed;
+        // Skipped state comes from the skips table (not logs), so isSkipped is the source of truth
+        const skipped = isSkipped?.(habit.id) ?? false;
 
         return (
           <div
@@ -328,8 +334,7 @@ function HabitList({
                   className={`habit-skip-btn ${skipped ? "habit-skip-btn--active" : ""}`}
                   onClick={() => {
                     if (skipped) {
-                      // clicking again on "skipped" removes the log (pending state)
-                      handleToggle(habit.id, false);
+                      unskip?.(habit.id);
                     } else {
                       skip?.(habit.id);
                     }
@@ -485,6 +490,7 @@ function HabitList({
 function MonthStrip({
   habits,
   rangeLogs,
+  rangeSkips,
   viewDate,
   today,
   selectedDate,
@@ -492,11 +498,13 @@ function MonthStrip({
 }: {
   habits: Habit[];
   rangeLogs: Log[];
+  rangeSkips: { habit_id: string; date: string }[];
   viewDate: Date;
   today: string;
   selectedDate: string;
   onSelectDate: (date: string) => void;
 }) {
+  const dateFnsLocale = useDateLocale();
   const days = eachDayOfInterval({
     start: startOfMonth(viewDate),
     end:   endOfMonth(viewDate),
@@ -506,9 +514,12 @@ function MonthStrip({
     <div className="month-strip">
       {days.map((dayObj) => {
         const date      = format(dayObj, "yyyy-MM-dd");
-        const due       = habits.filter((h) => isHabitDueOnDay(h, dayObj));
-        const dueCount  = due.length;
-        const doneCount = due.filter((h) =>
+        const due         = habits.filter((h) => isHabitDueOnDay(h, dayObj));
+        // Subtract habits that are skipped or excluded on this day from the due count
+        const rangeSkipsOnDay = rangeSkips.filter((s) => s.date === date);
+        const effectiveDue    = due.filter((h) => !rangeSkipsOnDay.some((s) => s.habit_id === h.id));
+        const dueCount        = effectiveDue.length;
+        const doneCount = effectiveDue.filter((h) =>
           rangeLogs.some((l) => l.habit_id === h.id && l.date === date && l.completed)
         ).length;
         const isToday = date === today;
@@ -527,7 +538,7 @@ function MonthStrip({
             ].filter(Boolean).join(" ")}
             onClick={() => onSelectDate(date)}
           >
-            <span className="month-strip-name">{format(dayObj, "EEE")}</span>
+            <span className="month-strip-name">{format(dayObj, "EEE", { locale: dateFnsLocale })}</span>
             <span className="month-strip-num">{format(dayObj, "d")}</span>
             <span className="month-strip-ratio">
               {dueCount > 0 ? `${doneCount}/${dueCount}` : "·"}
@@ -721,6 +732,53 @@ function DoneSection({
   );
 }
 
+// ── MissedSection ─────────────────────────────────────────
+
+/** Habits that were due but explicitly marked as not done. */
+function MissedSection({
+  habits,
+  unmarkMissed,
+}: {
+  habits: Habit[];
+  unmarkMissed: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="done-section missed-section">
+      <button
+        className="done-section-header"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="done-section-label missed-section-label">
+          {t("today.missed")} ({habits.length})
+        </span>
+        <span className="done-section-chevron">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="missed-list">
+          {habits.map((h) => (
+            <div key={h.id} className="missed-row">
+              <span className="missed-row-icon">{h.icon}</span>
+              <span className="missed-row-name">{h.name}</span>
+              <button
+                className="btn btn-ghost btn-sm missed-row-undo"
+                onClick={() => unmarkMissed(h.id)}
+                title={t("today.unmarkMissed")}
+              >
+                <RotateCcw size={13} />
+                {t("today.unmarkMissed")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── SkippedSection ────────────────────────────────────────
 
 /** Shows habits that were skipped on this day with a one-click restore. */
@@ -754,9 +812,155 @@ function SkippedSection({
   );
 }
 
-// ── SessionGroup ─────────────────────────────────────────
+// ── DaySchedule ──────────────────────────────────────────
 
 const SESSION_ORDER: Habit["session"][] = ["morning", "afternoon", "evening", "anytime"];
+
+const SESSION_EMOJI: Record<Habit["session"], string> = {
+  morning: "🌅",
+  afternoon: "☀️",
+  evening: "🌙",
+  anytime: "📋",
+};
+
+/** Default display time used only for sorting when a habit has no time_start. */
+const SESSION_SORT_TIME: Record<Habit["session"], string> = {
+  morning: "06:00",
+  afternoon: "12:00",
+  evening: "18:00",
+  anytime: "00:00",
+};
+
+function DaySchedule({
+  habits,
+  isToday,
+  logs,
+  toggle,
+  skip,
+  unskip,
+  isSkipped,
+}: {
+  habits: Habit[];
+  isToday: boolean;
+  logs: Log[];
+  toggle: (id: string, completed: boolean, value?: number | null) => void;
+  skip: (id: string) => void;
+  unskip: (id: string) => void;
+  isSkipped: (id: string) => boolean;
+}) {
+  const { t } = useTranslation();
+
+  const toMinutes = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + (m ?? 0);
+  };
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const nowLabel = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  // Flat list sorted by (session order index, then time_start within session)
+  const flat = SESSION_ORDER.flatMap((session) =>
+    habits
+      .filter((h) => (h.session ?? "anytime") === session)
+      .sort((a, b) =>
+        (a.time_start ?? SESSION_SORT_TIME[session]).localeCompare(
+          b.time_start ?? SESSION_SORT_TIME[session]
+        )
+      )
+      .map((h) => ({ habit: h, session, minutes: toMinutes(h.time_start ?? SESSION_SORT_TIME[session]) }))
+  );
+
+  // Index of the first habit that is strictly after "now" — now-line appears before it
+  const nowIdx = isToday ? flat.findIndex((item) => item.minutes > nowMinutes) : -1;
+
+  return (
+    <div className="day-schedule">
+      {flat.map((item, idx) => {
+        const { habit, session } = item;
+        const isNewSession = idx === 0 || flat[idx - 1].session !== session;
+        const isDone = !!logs.find((l) => l.habit_id === habit.id && l.completed);
+        const skipped = isSkipped(habit.id);
+
+        return (
+          <div key={habit.id}>
+            {/* Session header when group changes */}
+            {isNewSession && (
+              <div className="day-schedule-session-header">
+                <span className="day-schedule-session-icon">{SESSION_EMOJI[session]}</span>
+                <span className="day-schedule-session-label">{t(`habits.session_${session}`)}</span>
+              </div>
+            )}
+
+            {/* Current-time indicator, inserted before the first habit after now */}
+            {idx === nowIdx && (
+              <div className="day-schedule-now-row">
+                <span className="day-schedule-now-time">{nowLabel}</span>
+                <div className="day-schedule-now-line" />
+              </div>
+            )}
+
+            <div className={[
+              "day-schedule-slot",
+              isDone   ? "day-schedule-slot--done"    : "",
+              skipped  ? "day-schedule-slot--skipped" : "",
+            ].filter(Boolean).join(" ")}>
+              <span className="day-schedule-time">
+                {habit.time_start ?? <span className="day-schedule-no-time">—</span>}
+              </span>
+              <span className="day-schedule-icon">{habit.icon}</span>
+              <span className="day-schedule-name">{habit.name}</span>
+              <div className="day-schedule-btns">
+                {skipped ? (
+                  <button
+                    className="sched-btn sched-btn--undo"
+                    onClick={() => unskip(habit.id)}
+                    title={t("today.unskipBtn")}
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className={`sched-btn ${isDone ? "sched-btn--done" : "sched-btn--check"}`}
+                      onClick={() => toggle(habit.id, !isDone)}
+                      title={isDone ? t("today.markNotDone") : t("today.doneBtn")}
+                    >
+                      {isDone ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+                    </button>
+                    {!isDone && (
+                      <button
+                        className="sched-btn sched-btn--skip"
+                        onClick={() => skip(habit.id)}
+                        title={t("today.skipBtn")}
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Now-line at the very bottom when all habits are in the past */}
+      {isToday && nowIdx === -1 && flat.length > 0 && (
+        <div className="day-schedule-now-row">
+          <span className="day-schedule-now-time">{nowLabel}</span>
+          <div className="day-schedule-now-line" />
+        </div>
+      )}
+
+      {flat.length === 0 && (
+        <p className="day-schedule-empty">{t("today.noHabits")}</p>
+      )}
+    </div>
+  );
+}
+
+// ── SessionGroup ─────────────────────────────────────────
 
 function SessionGroup({
   session,
@@ -836,6 +1040,7 @@ function PerfectDayBanner({ done, total, isToday }: { done: number; total: numbe
 
 export function Today() {
   const { t } = useTranslation();
+  const dateFnsLocale = useDateLocale();
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
@@ -843,10 +1048,11 @@ export function Today() {
   const [calView, setCalView]       = useState<CalendarView>("monthly");
   const [viewDate, setViewDate]     = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [dayPanelOpen, setDayPanelOpen] = useState(false);
 
   // ── Data ──────────────────────────────────────────────────
   const { habits, loading: habitsLoading, create, update, archive, remove } = useHabits();
-  const { logs, loading: logsLoading, toggle, skip: skipHabit, saveNote, reload: reloadDayLogs } =
+  const { logs, loading: logsLoading, toggle, saveNote, reload: reloadDayLogs } =
     useDateLogs(selectedDate);
   const { categories } = useCategories();
   const { getHabitStats } = useStats();
@@ -868,8 +1074,9 @@ export function Today() {
     calRange.start,
     calRange.end
   );
-  const { isSkipped, skip, unskip } = useSkips(selectedDate);
+  const { isSkipped, isExcluded, skip, exclude, unskip } = useSkips(selectedDate);
   const { rangeSkips } = useRangeSkips(calRange.start, calRange.end);
+  const { isMissed, markMissed, unmarkMissed } = useMisses(selectedDate);
 
   useReminders(habits, selectedDate === todayStr ? logs : []);
 
@@ -888,6 +1095,8 @@ export function Today() {
       return !v;
     });
   }, []);
+
+  const [scheduleView, setScheduleView] = useState(false);
 
   // ── R-04: milestone toasts ────────────────────────────────
   const shownMilestones = useRef(new Set<string>());
@@ -1000,6 +1209,7 @@ export function Today() {
   const [editHabit, setEditHabit]     = useState<Habit | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Habit | null>(null);
   const [menu, setMenu]               = useState<MenuState>(null);
+  const [deleteAllLogsTarget, setDeleteAllLogsTarget] = useState<Habit | null>(null);
 
   const openCreate = useCallback(() => {
     setEditHabit(null);
@@ -1064,14 +1274,42 @@ export function Today() {
     setDeleteTarget(null);
   }, [deleteTarget, remove, showToast, t]);
 
+  const handleDeleteLogToday = useCallback(async (habit: Habit) => {
+    setMenu(null);
+    try {
+      await deleteLogForDate(habit.id, selectedDate);
+      exclude(habit.id);
+      window.dispatchEvent(new CustomEvent("zyrco:log-changed"));
+      reloadDayLogs();
+      reloadRangeLogs();
+    } catch (err) {
+      console.error("Today handleDeleteLogToday failed:", err);
+      showToast(t("common.error"), "error");
+    }
+  }, [selectedDate, exclude, reloadDayLogs, reloadRangeLogs, showToast, t]);
+
+  const handleArchiveFromMenu = useCallback(async () => {
+    if (!deleteAllLogsTarget) return;
+    try {
+      await archive(deleteAllLogsTarget.id, true);
+      showToast(t("today.habitArchived"), "info");
+    } catch (err) {
+      console.error("Today handleArchiveFromMenu failed:", err);
+      showToast(t("common.error"), "error");
+    }
+    setDeleteAllLogsTarget(null);
+  }, [deleteAllLogsTarget, archive, showToast, t]);
+
   const openMenu = useCallback(
     (habit: Habit, e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       const rect = e.currentTarget.getBoundingClientRect();
+      // Flip upward when there isn't enough room below (navbar ~56px + dropdown ~180px)
+      const flipped = rect.bottom + 180 > window.innerHeight - 56;
       setMenu((prev) =>
         prev?.habitId === habit.id
           ? null
-          : { habitId: habit.id, x: rect.right, y: rect.bottom }
+          : { habitId: habit.id, x: rect.right, y: flipped ? rect.top : rect.bottom, flipped }
       );
     },
     []
@@ -1084,7 +1322,8 @@ export function Today() {
     if (h.paused_until && h.paused_until >= selectedDate) return false;
     return true;
   });
-  const allDueHabits = activeDayHabits.filter((h) => isHabitDueOnDay(h, selectedDateObj));
+  // Excluded habits (type='exclude') are completely invisible — not even in the skipped list
+  const allDueHabits  = activeDayHabits.filter((h) => isHabitDueOnDay(h, selectedDateObj) && !isExcluded(h.id));
   const dueHabits     = allDueHabits.filter((h) => !isSkipped(h.id));
   const skippedHabits = allDueHabits.filter((h) => isSkipped(h.id));
 
@@ -1196,7 +1435,7 @@ export function Today() {
   }
 
   const isToday       = selectedDate === todayStr;
-  const selectedLabel = format(selectedDateObj, "EEEE, MMMM d");
+  const selectedLabel = format(selectedDateObj, "EEEE, MMMM d", { locale: dateFnsLocale });
   const menuHabit     = menu ? habits.find((h) => h.id === menu.habitId) ?? null : null;
 
   // ── Filter chip types + categories present in dueHabits ──
@@ -1220,14 +1459,16 @@ export function Today() {
     return arr;
   })();
 
-  // Split into pending and done for separate sections
-  const pendingHabits = sortedDue.filter((h) => !getLog(h.id)?.completed);
+  // Split into pending / done / missed for separate sections
+  const missedHabits  = sortedDue.filter((h) => isMissed(h.id) && !getLog(h.id)?.completed);
+  const pendingHabits = sortedDue.filter((h) => !getLog(h.id)?.completed && !isMissed(h.id));
   const doneHabits    = sortedDue.filter((h) =>  getLog(h.id)?.completed);
 
   // Long-press on habit-info area opens the context menu at pointer position
   const handleLongPress = (habit: Habit, pos: { x: number; y: number }) => {
+    const flipped = pos.y + 180 > window.innerHeight - 56;
     setMenu((prev) =>
-      prev?.habitId === habit.id ? null : { habitId: habit.id, x: pos.x, y: pos.y }
+      prev?.habitId === habit.id ? null : { habitId: habit.id, x: pos.x, y: pos.y, flipped }
     );
   };
 
@@ -1237,7 +1478,9 @@ export function Today() {
     categories,
     getHabitStats,
     toggle: toggleWithUndo,
-    skip: skipHabit,
+    skip,
+    unskip,
+    isSkipped,
     onNoteClick: setNoteHabit,
     onHabitMenu: openMenu,
     onLongPress: handleLongPress,
@@ -1262,6 +1505,10 @@ export function Today() {
       {/* ── Monthly layout ──────────────────────────────────── */}
       {calView === "monthly" && (
         <div className="page today-page--monthly">
+          {dayPanelOpen && (
+            <div className="day-panel-backdrop" onClick={() => setDayPanelOpen(false)} />
+          )}
+
           <div className="today-split">
             <div className="today-split-cal">
               <HabitCalendar
@@ -1273,17 +1520,22 @@ export function Today() {
                 rangeLogs={rangeLogs}
                 rangeSkips={rangeSkips}
                 onViewChange={handleViewChange}
-                onDateSelect={handleDateSelectFromCal}
+                onDateSelect={(d) => {
+                  handleDateSelectFromCal(d);
+                  if (window.innerWidth <= 600) setDayPanelOpen(true);
+                }}
                 onNavigate={handleNavigate}
                 onJumpTo={handleJumpTo}
                 onGoToToday={handleGoToToday}
               />
             </div>
 
-            <aside className="cal-day-panel">
+            <aside className={`cal-day-panel${dayPanelOpen ? " cal-day-panel--open" : ""}`}>
+              <div className="day-panel-handle" aria-hidden="true" />
               <MonthStrip
                 habits={habits}
                 rangeLogs={rangeLogs}
+                rangeSkips={rangeSkips}
                 viewDate={viewDate}
                 today={todayStr}
                 selectedDate={selectedDate}
@@ -1304,6 +1556,13 @@ export function Today() {
                     title={t("habits.new")}
                   >
                     <Plus size={16} />
+                  </button>
+                  <button
+                    className="icon-btn day-panel-close-btn"
+                    onClick={() => setDayPanelOpen(false)}
+                    aria-label={t("common.close")}
+                  >
+                    <X size={16} />
                   </button>
                 </div>
               </div>
@@ -1359,6 +1618,10 @@ export function Today() {
 
                 {doneHabits.length > 0 && (
                   <DoneSection habits={doneHabits} {...habitListProps} />
+                )}
+
+                {missedHabits.length > 0 && (
+                  <MissedSection habits={missedHabits} unmarkMissed={unmarkMissed} />
                 )}
 
                 {skippedHabits.length > 0 && (
@@ -1431,15 +1694,27 @@ export function Today() {
               </div>
             )}
             <div className="cal-day-header-actions">
-              {/* R-09: compact view toggle */}
               {dueHabits.length > 0 && (
-                <button
-                  className={`btn btn-ghost btn-sm compact-toggle ${compactView ? "compact-toggle--active" : ""}`}
-                  onClick={toggleCompact}
-                  title={t("today.compactView")}
-                >
-                  ☰
-                </button>
+                <>
+                  {/* Schedule / agenda view toggle */}
+                  <button
+                    className={`btn btn-ghost btn-sm compact-toggle ${scheduleView ? "compact-toggle--active" : ""}`}
+                    onClick={() => setScheduleView((v) => !v)}
+                    title={t("today.scheduleView")}
+                  >
+                    <Clock size={14} />
+                  </button>
+                  {/* R-09: compact list view toggle (hidden while schedule view is active) */}
+                  {!scheduleView && (
+                    <button
+                      className={`btn btn-ghost btn-sm compact-toggle ${compactView ? "compact-toggle--active" : ""}`}
+                      onClick={toggleCompact}
+                      title={t("today.compactView")}
+                    >
+                      ☰
+                    </button>
+                  )}
+                </>
               )}
               <button className="btn btn-primary btn-sm" onClick={openCreate}>
                 <Plus size={14} />
@@ -1467,44 +1742,64 @@ export function Today() {
             </div>
           )}
 
-          <FilterBar
-            dueHabitsLength={dueHabits.length}
-            hasGood={hasGood}
-            hasBad={hasBad}
-            hasNormal={hasNormal}
-            typeFilter={typeFilter}
-            dueCategories={dueCategories}
-            categoryFilter={categoryFilter}
-            habitSort={habitSort}
-            onTypeFilter={setTypeFilter}
-            onCategoryFilter={setCategoryFilter}
-            onHabitSort={setHabitSort}
-          />
-
-          {pendingHabits.length > 0 && (() => {
-            const bySessions = SESSION_ORDER.map((s) => ({
-              session: s,
-              habits: pendingHabits.filter((h) => (h.session ?? "anytime") === s),
-            })).filter((g) => g.habits.length > 0);
-            const hasMultipleSessions = bySessions.length > 1;
-            return hasMultipleSessions ? (
-              bySessions.map((g) => (
-                <SessionGroup key={g.session} session={g.session} habits={g.habits} listProps={habitListProps} />
-              ))
-            ) : (
-              <HabitList habits={pendingHabits} {...habitListProps} />
-            );
-          })()}
-
-          {doneHabits.length > 0 && (
-            <DoneSection habits={doneHabits} {...habitListProps} />
-          )}
-
-          {skippedHabits.length > 0 && (
-            <SkippedSection
-              habits={skippedHabits}
-              onUnskip={(id) => unskip(id)}
+          {scheduleView ? (
+            /* ── Schedule / agenda view ─────────────────────────── */
+            <DaySchedule
+              habits={[...dueHabits, ...skippedHabits]}
+              isToday={isToday}
+              logs={logs}
+              toggle={toggleWithUndo}
+              skip={skip}
+              unskip={unskip}
+              isSkipped={isSkipped}
             />
+          ) : (
+            /* ── Default list view ──────────────────────────────── */
+            <>
+              <FilterBar
+                dueHabitsLength={dueHabits.length}
+                hasGood={hasGood}
+                hasBad={hasBad}
+                hasNormal={hasNormal}
+                typeFilter={typeFilter}
+                dueCategories={dueCategories}
+                categoryFilter={categoryFilter}
+                habitSort={habitSort}
+                onTypeFilter={setTypeFilter}
+                onCategoryFilter={setCategoryFilter}
+                onHabitSort={setHabitSort}
+              />
+
+              {pendingHabits.length > 0 && (() => {
+                const bySessions = SESSION_ORDER.map((s) => ({
+                  session: s,
+                  habits: pendingHabits.filter((h) => (h.session ?? "anytime") === s),
+                })).filter((g) => g.habits.length > 0);
+                const hasMultipleSessions = bySessions.length > 1;
+                return hasMultipleSessions ? (
+                  bySessions.map((g) => (
+                    <SessionGroup key={g.session} session={g.session} habits={g.habits} listProps={habitListProps} />
+                  ))
+                ) : (
+                  <HabitList habits={pendingHabits} {...habitListProps} />
+                );
+              })()}
+
+              {doneHabits.length > 0 && (
+                <DoneSection habits={doneHabits} {...habitListProps} />
+              )}
+
+              {missedHabits.length > 0 && (
+                <MissedSection habits={missedHabits} unmarkMissed={unmarkMissed} />
+              )}
+
+              {skippedHabits.length > 0 && (
+                <SkippedSection
+                  habits={skippedHabits}
+                  onUnskip={(id) => unskip(id)}
+                />
+              )}
+            </>
           )}
 
           {noteHabit && (
@@ -1523,8 +1818,46 @@ export function Today() {
       {menu && menuHabit && (
         <div
           className="dropdown-menu dropdown-menu--fixed"
-          style={{ top: menu.y, left: menu.x }}
+          style={
+            menu.flipped
+              ? { bottom: window.innerHeight - menu.y, left: menu.x, top: "auto" }
+              : { top: menu.y, left: menu.x }
+          }
         >
+          {/* Mark done / undo done */}
+          {(() => {
+            const done = !!getLog(menuHabit.id)?.completed;
+            return (
+              <button
+                className={`dropdown-item${done ? "" : " dropdown-item--success"}`}
+                onClick={() => { toggleWithUndo(menuHabit.id, !done); setMenu(null); }}
+              >
+                {done ? <XCircle size={14} /> : <CheckCircle2 size={14} />}
+                {done ? t("today.markNotDone") : t("today.markDone")}
+              </button>
+            );
+          })()}
+          {/* Mark as missed (only when not done) */}
+          {!getLog(menuHabit.id)?.completed && (
+            isMissed(menuHabit.id) ? (
+              <button
+                className="dropdown-item"
+                onClick={() => { unmarkMissed(menuHabit.id); setMenu(null); }}
+              >
+                <RotateCcw size={14} />
+                {t("today.unmarkMissed")}
+              </button>
+            ) : (
+              <button
+                className="dropdown-item dropdown-item-danger"
+                onClick={() => { markMissed(menuHabit.id); setMenu(null); }}
+              >
+                <XCircle size={14} />
+                {t("today.markMissed")}
+              </button>
+            )
+          )}
+          <div className="dropdown-divider" />
           {isSkipped(menuHabit.id) ? (
             <button
               className="dropdown-item"
@@ -1554,6 +1887,22 @@ export function Today() {
               <><Archive size={14} />{t("habits.archive")}</>
             )}
           </button>
+          <div className="dropdown-divider" />
+          <button
+            className="dropdown-item dropdown-item-danger"
+            onClick={() => handleDeleteLogToday(menuHabit)}
+          >
+            <Trash2 size={14} />
+            {t("today.deleteLogToday")}
+          </button>
+          <button
+            className="dropdown-item dropdown-item-danger"
+            onClick={() => { setDeleteAllLogsTarget(menuHabit); setMenu(null); }}
+          >
+            <Trash2 size={14} />
+            {t("today.deleteAllLogs")}
+          </button>
+          <div className="dropdown-divider" />
           <button
             className="dropdown-item dropdown-item-danger"
             onClick={() => confirmDelete(menuHabit)}
@@ -1580,7 +1929,7 @@ export function Today() {
         />
       </Modal>
 
-      {/* ── Delete confirmation modal ────────────────────────── */}
+      {/* ── Delete habit confirmation modal ─────────────────── */}
       <Modal
         open={!!deleteTarget}
         title={t("habits.delete")}
@@ -1596,6 +1945,26 @@ export function Today() {
           </button>
           <button className="btn btn-danger" onClick={handleDelete}>
             {t("common.delete")}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Delete all logs confirmation modal ───────────────── */}
+      <Modal
+        open={!!deleteAllLogsTarget}
+        title={t("today.deleteAllLogsTitle")}
+        onClose={() => setDeleteAllLogsTarget(null)}
+        size="sm"
+        danger
+      >
+        <p className="confirm-text">{t("today.deleteAllLogsConfirm")}</p>
+        <p className="confirm-name">{deleteAllLogsTarget?.name}</p>
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={() => setDeleteAllLogsTarget(null)}>
+            {t("common.cancel")}
+          </button>
+          <button className="btn btn-danger" onClick={handleArchiveFromMenu}>
+            {t("today.stopHabit")}
           </button>
         </div>
       </Modal>

@@ -50,9 +50,20 @@
     "timerCountdown": "Countdown",
     "timerDone": "Target reached! Keep it up 💪",
     "compactView": "Compact view",
+    "scheduleView": "Schedule view",
     "atRiskMsg": "{{count}} streak(s) at risk tonight — don't break the chain!",
     "undo": "Undo",
-    "markNotDone": "Mark as not done"
+    "markNotDone": "Mark as not done",
+    "deleteLogToday": "Exclude today (mark as skipped)",
+    "deleteAllLogs": "Stop doing this habit",
+    "deleteAllLogsTitle": "Archive habit",
+    "deleteAllLogsConfirm": "The habit will be archived and removed from your daily view. Your history (completed days, streaks) is preserved. You can reactivate it anytime from the Habits page.",
+    "stopHabit": "Archive",
+    "habitArchived": "Habit archived — reactivate it from the Habits page",
+    "markDone": "Mark as completed",
+    "markMissed": "I didn't do it today",
+    "missed": "Missed",
+    "unmarkMissed": "Move back to pending"
   },
   "habits": {
     "title": "My Habits",
@@ -69,7 +80,9 @@
     "weekly": "Weekly",
     "custom": "Custom",
     "targetDays": "Days of the week",
-    "upcomingPreview": "Next 8 days",
+    "upcomingPreview": "Next 14 days",
+    "errorSelectWeekday": "Select a day of the week",
+    "errorSelectDay": "Select at least one day",
     "targetMonthDays": "Days of the month",
     "customType": "Repeat pattern",
     "customType_weekdays": "Weekdays",
@@ -211,7 +224,11 @@
     "rateOverTime": "Completion rate over time",
     "noHabitsYet": "Create some habits to start tracking.",
     "less": "Less",
-    "more": "More"
+    "more": "More",
+    "missedHabits": "Habits not done",
+    "missedHabitsDesc": "Habits you explicitly marked as not completed in this period.",
+    "missedTimes": "{{count}} time(s) missed",
+    "noMissedHabits": "No habits marked as missed in this period."
   },
   "settings": {
     "title": "Settings",

@@ -159,7 +159,7 @@
   - Build: `npm run tauri build`
 - Required environment variables: none (local SQLite, no external services)
 - External services: none
-- Tests: none yet — suggest Vitest for hooks, Playwright for e2e
+- Tests: Vitest configured (`npm test`). 13 unit tests for isHabitDueOnDay in src/utils/schedule.test.ts. Playwright for e2e still pending.
 - Deploy: Tauri bundler (`npm run tauri build`) → .exe installer for Windows
 - CI/CD: none yet
 - Database: SQLite via `@tauri-apps/plugin-sql`. DB file at `%APPDATA%/com.zubia.zyrco/zyrco.db`
@@ -178,12 +178,12 @@
 - Cross-platform event bus: `window.dispatchEvent(new CustomEvent("zyrco:log-changed"))` — dispatched after every log write; `useStats` and `useCalendarLogs` listen to it for live updates
 
 # GAPS AND PENDING
-- 2026-06-26: Reminders scheduled (plugin installed, UI toggle done) but OS notification scheduling not yet wired — needs background polling or Tauri cron equivalent
-- 2026-06-26: No tests — Vitest setup pending
-- 2026-06-26: App icon still uses Tauri default — custom icon pending
-- 2026-06-26: Production build untested (dev build blocked by MSVC until today)
+- 2026-06-26: App icon still uses Tauri default — custom icon pending (need 1024×1024 PNG asset)
+- 2026-06-26: Production build untested — run `npm run tauri build` and check for errors
 - 2026-06-26: Mobile bottom nav needs testing on real Android/iOS device via Tauri mobile target
+- 2026-06-26: Reminders fire while app is open (60s polling in useReminders — working). Background notifications when app is closed not implemented — would need Tauri system tray + OS scheduler.
 - 2026-06-27: P-03/P-04/P-05/P-07/P-01/P-02 sprint implemented. Habits table has session, completion_type, completion_target, completion_unit columns. Logs table has value column. All via ALTER TABLE migration in initSchema.
 - 2026-06-27: `HabitStats.strengthScore` (0-100 EMA) computed in useStats — shown as inline bar in habit rows
 - 2026-06-27: Timer habits use ephemeral React state (Map in Today.tsx) — timers reset on page navigation or app reload, by design
 - 2026-06-27: AnnualHeatmap uses isHabitDueOnDay per-day which is O(365 × habits) — acceptable for local desktop use, would need memoization if habit count exceeds ~200
+- 2026-06-29: FIXED — Today page skip bug: X button was writing to logs table while isSkipped checked skips table. Wired both skip/unskip/isSkipped from useSkips into HabitList. Also fixed: re-clicking X was marking habit done instead of unskipping.

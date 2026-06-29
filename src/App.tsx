@@ -12,9 +12,10 @@ import { HabitDetail } from "./pages/HabitDetail";
 import { Calendar } from "./pages/Calendar";
 import { Auth } from "./pages/Auth";
 import { Onboarding } from "./components/Onboarding";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { WeeklyDigest } from "./components/WeeklyDigest";
 import type { HabitTemplate } from "./data/habitTemplates";
-import { insertHabit, upsertLog, fetchHabits, fetchAllLogs } from "./db/database";
+import { insertHabit, fetchHabits, fetchAllLogs } from "./db/database";
 import { format } from "date-fns";
 
 const router = createHashRouter([
@@ -68,7 +69,7 @@ function AppContent() {
 
   if (!user) return <Auth />;
 
-  const handleOnboardingComplete = async (template: HabitTemplate | null, doCheckIn = false) => {
+  const handleOnboardingComplete = async (template: HabitTemplate | null) => {
     localStorage.setItem("zyrco-onboarding-done", "1");
     if (template) {
       try {
@@ -96,13 +97,9 @@ function AppContent() {
           paused_until: null,
         });
 
-        if (doCheckIn) {
-          // Log the first check-in and store a highlight flag for Today.tsx
-          const today = format(new Date(), "yyyy-MM-dd");
-          await upsertLog(habit.id, today, true);
-          localStorage.setItem("zyrco-highlight-habit", habit.id);
-          window.dispatchEvent(new CustomEvent("zyrco:log-changed"));
-        }
+        // Highlight the new habit in Today view so the user can see it
+        localStorage.setItem("zyrco-highlight-habit", habit.id);
+        window.dispatchEvent(new CustomEvent("zyrco:log-changed"));
       } catch (err) {
         console.error("Onboarding insertHabit failed:", err);
       }
@@ -129,8 +126,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

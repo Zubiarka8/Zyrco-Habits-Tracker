@@ -50,9 +50,20 @@
     "timerCountdown": "Contrareloj",
     "timerDone": "¡Objetivo completado! Así se hace 💪",
     "compactView": "Vista compacta",
+    "scheduleView": "Vista horario",
     "atRiskMsg": "¡{{count}} racha(s) en riesgo esta noche — no rompas la cadena!",
     "undo": "Deshacer",
-    "markNotDone": "Marcar como no hecho"
+    "markNotDone": "Marcar como no hecho",
+    "deleteLogToday": "Excluir hoy (marcar como saltado)",
+    "deleteAllLogs": "Dejar de hacer este hábito",
+    "deleteAllLogsTitle": "Archivar hábito",
+    "deleteAllLogsConfirm": "El hábito se archivará y dejará de aparecer en tu vista diaria. Tu historial (días completados, rachas) se conserva. Puedes reactivarlo cuando quieras desde la página de Hábitos.",
+    "stopHabit": "Archivar",
+    "habitArchived": "Hábito archivado — reactívalo desde la página de Hábitos",
+    "markDone": "Marcar como completado",
+    "markMissed": "Hoy no lo hice",
+    "missed": "No hechos",
+    "unmarkMissed": "Mover a pendientes"
   },
   "habits": {
     "title": "Mis Hábitos",
@@ -69,7 +80,9 @@
     "weekly": "Semanal",
     "custom": "Personalizado",
     "targetDays": "Días de la semana",
-    "upcomingPreview": "Próximos 8 días",
+    "upcomingPreview": "Próximos 14 días",
+    "errorSelectWeekday": "Selecciona un día de la semana",
+    "errorSelectDay": "Selecciona al menos un día",
     "targetMonthDays": "Días del mes",
     "customType": "Patrón de repetición",
     "customType_weekdays": "Días de la semana",
@@ -211,7 +224,11 @@
     "rateOverTime": "Tasa de completado a lo largo del tiempo",
     "noHabitsYet": "Crea algunos hábitos para empezar a rastrear.",
     "less": "Menos",
-    "more": "Más"
+    "more": "Más",
+    "missedHabits": "Hábitos no hechos",
+    "missedHabitsDesc": "Hábitos que marcaste explícitamente como no completados en este periodo.",
+    "missedTimes": "{{count}} vez/veces fallado",
+    "noMissedHabits": "Ningún hábito marcado como no hecho en este periodo."
   },
   "settings": {
     "title": "Ajustes",

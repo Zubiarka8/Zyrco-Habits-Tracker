@@ -231,6 +231,28 @@ async function initSchema(database: Database): Promise<void> {
     );
   }
 
+  // Migration: misses table — habits that were due but explicitly marked as not done by the user
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS misses (
+      id TEXT PRIMARY KEY,
+      habit_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      UNIQUE(habit_id, date, user_id)
+    )
+  `);
+  const missCols = await database.select<{ name: string }[]>("PRAGMA table_info(misses)");
+  if (!missCols.some((c) => c.name === "user_id")) {
+    await database.execute("ALTER TABLE misses ADD COLUMN user_id TEXT NOT NULL DEFAULT ''");
+  }
+
+  // Migration: add type column to skips (distinguishes 'skip'=tachado vs 'exclude'=fully hidden)
+  const skipCols = await database.select<{ name: string }[]>("PRAGMA table_info(skips)");
+  if (!skipCols.some((c) => c.name === "type")) {
+    await database.execute("ALTER TABLE skips ADD COLUMN type TEXT NOT NULL DEFAULT 'skip'");
+  }
+
   // Mirror schema to Turso when credentials are configured
   await initTursoSchema();
 }
@@ -604,6 +626,60 @@ export async function upsertLog(
   syncToTurso(sql, params);
 }
 
+export async function deleteLogForDate(habitId: string, date: string): Promise<void> {
+  const db = await getDb();
+  const sql = "DELETE FROM logs WHERE habit_id = $1 AND date = $2";
+  const params = [habitId, date];
+  await db.execute(sql, params);
+  syncToTurso(sql, params);
+}
+
+export async function deleteAllLogsForHabit(habitId: string): Promise<void> {
+  const db = await getDb();
+  const sql = "DELETE FROM logs WHERE habit_id = $1";
+  const params = [habitId];
+  await db.execute(sql, params);
+  syncToTurso(sql, params);
+}
+
+// ---- Misses (habits due but explicitly not done) ----
+
+export async function markHabitMissed(habitId: string, date: string): Promise<void> {
+  const db  = await getDb();
+  const uid = getLocalUserId();
+  await db.execute(
+    "INSERT OR IGNORE INTO misses (id, habit_id, date, user_id, created_at) VALUES ($1,$2,$3,$4,$5)",
+    [crypto.randomUUID(), habitId, date, uid, new Date().toISOString()]
+  );
+}
+
+export async function unmarkHabitMissed(habitId: string, date: string): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    "DELETE FROM misses WHERE habit_id = $1 AND date = $2 AND user_id = $3",
+    [habitId, date, getLocalUserId()]
+  );
+}
+
+export async function fetchMissesForDate(date: string): Promise<{ habit_id: string; date: string }[]> {
+  const db = await getDb();
+  return db.select<{ habit_id: string; date: string }[]>(
+    "SELECT habit_id, date FROM misses WHERE date = $1 AND user_id = $2",
+    [date, getLocalUserId()]
+  );
+}
+
+export async function fetchMissesForRange(
+  startDate: string,
+  endDate: string
+): Promise<{ habit_id: string; date: string }[]> {
+  const db = await getDb();
+  return db.select<{ habit_id: string; date: string }[]>(
+    "SELECT habit_id, date FROM misses WHERE date >= $1 AND date <= $2 AND user_id = $3",
+    [startDate, endDate, getLocalUserId()]
+  );
+}
+
 export async function updateLogNote(
   habitId: string,
   date: string,
@@ -626,10 +702,10 @@ function parseTodo(raw: RawTodo): Todo {
 
 // ---- Skips (per-day habit exceptions) ----
 
-export async function fetchSkipsForDate(date: string): Promise<{ habit_id: string; date: string }[]> {
+export async function fetchSkipsForDate(date: string): Promise<{ habit_id: string; date: string; type: string }[]> {
   const db = await getDb();
-  return db.select<{ habit_id: string; date: string }[]>(
-    "SELECT habit_id, date FROM skips WHERE date = $1 AND user_id = $2",
+  return db.select<{ habit_id: string; date: string; type: string }[]>(
+    "SELECT habit_id, date, COALESCE(type, 'skip') AS type FROM skips WHERE date = $1 AND user_id = $2",
     [date, getLocalUserId()]
   );
 }
@@ -637,19 +713,39 @@ export async function fetchSkipsForDate(date: string): Promise<{ habit_id: strin
 export async function fetchSkipsForRange(
   startDate: string,
   endDate: string
-): Promise<{ habit_id: string; date: string }[]> {
+): Promise<{ habit_id: string; date: string; type: string }[]> {
   const db = await getDb();
-  return db.select<{ habit_id: string; date: string }[]>(
-    "SELECT habit_id, date FROM skips WHERE date >= $1 AND date <= $2 AND user_id = $3",
+  // Returns ALL types (skip + exclude) so calendar and month-strip can filter both out of counts
+  return db.select<{ habit_id: string; date: string; type: string }[]>(
+    "SELECT habit_id, date, COALESCE(type,'skip') AS type FROM skips WHERE date >= $1 AND date <= $2 AND user_id = $3",
     [startDate, endDate, getLocalUserId()]
   );
 }
 
 export async function skipHabitOnDate(habitId: string, date: string): Promise<void> {
-  const db = await getDb();
+  const db  = await getDb();
+  const uid = getLocalUserId();
+  // Delete any existing entry first (could be type='exclude'), then insert fresh skip
   await db.execute(
-    "INSERT OR IGNORE INTO skips (id, habit_id, date, user_id, created_at) VALUES ($1,$2,$3,$4,$5)",
-    [crypto.randomUUID(), habitId, date, getLocalUserId(), new Date().toISOString()]
+    "DELETE FROM skips WHERE habit_id = $1 AND date = $2 AND user_id = $3",
+    [habitId, date, uid]
+  );
+  await db.execute(
+    "INSERT INTO skips (id, habit_id, date, user_id, created_at, type) VALUES ($1,$2,$3,$4,$5,$6)",
+    [crypto.randomUUID(), habitId, date, uid, new Date().toISOString(), "skip"]
+  );
+}
+
+export async function excludeHabitOnDate(habitId: string, date: string): Promise<void> {
+  const db  = await getDb();
+  const uid = getLocalUserId();
+  await db.execute(
+    "DELETE FROM skips WHERE habit_id = $1 AND date = $2 AND user_id = $3",
+    [habitId, date, uid]
+  );
+  await db.execute(
+    "INSERT INTO skips (id, habit_id, date, user_id, created_at, type) VALUES ($1,$2,$3,$4,$5,$6)",
+    [crypto.randomUUID(), habitId, date, uid, new Date().toISOString(), "exclude"]
   );
 }
 
@@ -743,12 +839,14 @@ export async function importData(data: ExportData): Promise<{ habits: number; ca
   );
   const existingLogKeys = new Set(existingRawLogs.map((l) => `${l.habit_id}|${l.date}`));
 
+  const userId = getLocalUserId();
+
   let cats = 0;
   for (const cat of data.categories ?? []) {
     if (!existingCatIds.has(cat.id)) {
       await db.execute(
-        "INSERT INTO categories (id, name, color, icon, created_at) VALUES ($1,$2,$3,$4,$5)",
-        [cat.id, cat.name, cat.color, cat.icon, cat.created_at]
+        "INSERT INTO categories (id, name, color, icon, created_at, user_id) VALUES ($1,$2,$3,$4,$5,$6)",
+        [cat.id, cat.name, cat.color, cat.icon, cat.created_at, userId]
       );
       cats++;
     }
@@ -761,8 +859,10 @@ export async function importData(data: ExportData): Promise<{ habits: number; ca
         `INSERT INTO habits
           (id, name, description, category_id, frequency, custom_type, target_days,
            interval_days, start_date, end_date, color, icon,
-           type, reminder_enabled, reminder_time, created_at, archived)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+           type, reminder_enabled, reminder_time, created_at, archived,
+           session, completion_type, completion_target, completion_unit,
+           time_start, time_end, paused_until, user_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
         [
           h.id, h.name, h.description ?? null, h.category_id ?? null,
           h.frequency, h.custom_type ?? null,
@@ -771,6 +871,13 @@ export async function importData(data: ExportData): Promise<{ habits: number; ca
           h.color, h.icon, h.type ?? "normal",
           h.reminder_enabled ? 1 : 0, h.reminder_time ?? null,
           h.created_at, h.archived ? 1 : 0,
+          h.session ?? "anytime",
+          h.completion_type ?? "binary",
+          h.completion_target ?? null,
+          h.completion_unit ?? null,
+          h.time_start ?? null, h.time_end ?? null,
+          h.paused_until ?? null,
+          userId,
         ]
       );
       habits++;
@@ -782,8 +889,8 @@ export async function importData(data: ExportData): Promise<{ habits: number; ca
     const key = `${l.habit_id}|${l.date}`;
     if (!existingLogKeys.has(key)) {
       await db.execute(
-        "INSERT INTO logs (id, habit_id, date, completed, note, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
-        [l.id, l.habit_id, l.date, l.completed ? 1 : 0, l.note ?? null, l.created_at]
+        "INSERT INTO logs (id, habit_id, date, completed, note, value, created_at, user_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+        [l.id, l.habit_id, l.date, l.completed ? 1 : 0, l.note ?? null, l.value ?? null, l.created_at, userId]
       );
       logs++;
     }

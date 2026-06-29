@@ -17,6 +17,7 @@ import {
 } from "date-fns";
 import type { Habit, Log } from "../types";
 import { isHabitDueOnDay } from "../utils/schedule";
+import { useDateLocale } from "../hooks/useDateLocale";
 
 export type CalendarView = "monthly" | "weekly" | "daily";
 
@@ -460,21 +461,23 @@ export function HabitCalendar({
   onToggle,
 }: HabitCalendarProps) {
   const { t } = useTranslation();
+  const dateFnsLocale = useDateLocale();
   const [picker, setPicker] = useState<"none" | "month" | "year">("none");
 
   // Close picker if view changes (e.g. switch monthly → weekly)
   useEffect(() => { setPicker("none"); }, [view]);
 
   const headerLabel = useMemo(() => {
+    const locale = dateFnsLocale;
     if (view === "monthly") return null; // rendered as separate clickable parts
     if (view === "weekly") {
       const ws = startOfWeek(viewDate, { weekStartsOn: 1 });
       const we = endOfWeek(viewDate, { weekStartsOn: 1 });
-      return `${format(ws, "MMM d")} – ${format(we, "MMM d, yyyy")}`;
+      return `${format(ws, "MMM d", { locale })} – ${format(we, "MMM d, yyyy", { locale })}`;
     }
     const sel = parseISO(selectedDate + "T00:00:00");
-    return format(sel, "EEEE, MMMM d, yyyy");
-  }, [view, viewDate, selectedDate]);
+    return format(sel, "EEEE, MMMM d, yyyy", { locale });
+  }, [view, viewDate, selectedDate, dateFnsLocale]);
 
   const VIEW_LABELS: Record<CalendarView, string> = {
     monthly: t("today.viewMonthly"),
@@ -515,7 +518,7 @@ export function HabitCalendar({
                   className={`cal-nav-month-btn ${picker === "month" ? "cal-nav-month-btn--active" : ""}`}
                   onClick={() => setPicker((p) => (p === "month" ? "none" : "month"))}
                 >
-                  {format(viewDate, "MMMM")}
+                  {format(viewDate, "MMMM", { locale: dateFnsLocale })}
                 </button>
                 {picker === "month" && (
                   <MonthPicker

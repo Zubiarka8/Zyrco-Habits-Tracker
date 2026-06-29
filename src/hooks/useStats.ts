@@ -1,91 +1,30 @@
 import { useState, useEffect, useCallback } from "react";
-import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
+import { format, subDays, eachDayOfInterval } from "date-fns";
 import type { Habit, Log, HabitStats } from "../types";
 import { fetchAllLogs, fetchHabits } from "../db/database";
-
-/** EMA-based strength score (0–100). Recent completions weigh more than old ones.
- *  A 3-day miss after 60 days of consistency drops from ~100 to ~65, not to 0. */
-function calculateStrengthScore(logs: Log[], habitId: string): number {
-  const ALPHA = 0.15;
-  const DAYS = 90;
-  const completedDates = new Set(
-    logs.filter((l) => l.habit_id === habitId && l.completed).map((l) => l.date)
-  );
-  let score = 0;
-  for (let i = 0; i < DAYS; i++) {
-    const date = format(subDays(new Date(), i), "yyyy-MM-dd");
-    if (completedDates.has(date)) {
-      score += ALPHA * Math.pow(1 - ALPHA, i);
-    }
-  }
-  const maxScore = 1 - Math.pow(1 - ALPHA, DAYS);
-  return Math.round((score / maxScore) * 100);
-}
-
-
-function getGraceDays(): number {
-  return Math.max(0, Math.min(2, parseInt(localStorage.getItem("zyrco-grace-days") ?? "1", 10)));
-}
-
-function calculateStreak(logs: Log[], habitId: string): { current: number; best: number; graceDayActive: boolean } {
-  const graceDays = getGraceDays();
-  const completedDates = new Set(
-    logs.filter((l) => l.habit_id === habitId && l.completed).map((l) => l.date)
-  );
-
-  if (completedDates.size === 0) return { current: 0, best: 0, graceDayActive: false };
-
-  // ── current streak: walk backward from today, allow up to graceDays consecutive misses ──
-  let current = 0;
-  let missRun = 0;
-  let started = false;
-
-  for (let i = 0; i < 3650; i++) {
-    const ds = format(subDays(new Date(), i), "yyyy-MM-dd");
-    if (completedDates.has(ds)) {
-      current++;
-      started = true;
-      missRun = 0;
-    } else {
-      if (!started && i > graceDays) break;
-      if (started && missRun >= graceDays) break;
-      missRun++;
-    }
-  }
-
-  // graceDayActive: streak is alive but today's habit hasn't been completed
-  const graceDayActive = current > 0 && missRun > 0;
-
-  // ── best streak: longest unbroken run (no grace on best, keeps the number honest) ──
-  const sortedAsc = [...completedDates].sort();
-  let best = 0;
-  let run = 0;
-  let prev: string | null = null;
-
-  for (const date of sortedAsc) {
-    if (prev === null || date === format(subDays(parseISO(prev), -1), "yyyy-MM-dd")) {
-      run++;
-    } else {
-      run = 1;
-    }
-    if (run > best) best = run;
-    prev = date;
-  }
-
-  return { current, best, graceDayActive };
-}
+import { calculateStreak, calculateStrengthScore } from "../utils/stats";
 
 export function useStats() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [h, l] = await Promise.all([fetchHabits(false), fetchAllLogs()]);
-    setHabits(h);
-    setLogs(l);
-    setLoading(false);
+    setError(null);
+    try {
+      // Fetch ALL habits (including archived) so streak lookups work for archive pages.
+      const [h, l] = await Promise.all([fetchHabits(true), fetchAllLogs()]);
+      setHabits(h);
+      setLogs(l);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      console.error("useStats load failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -129,7 +68,10 @@ export function useStats() {
           ? Math.round((last30Days.filter((d) => d.completed).length / range.length) * 100)
           : 0;
 
-      const { current: streak, best: bestStreak, graceDayActive } = calculateStreak(logs, habitId);
+      const habit = habits.find((h) => h.id === habitId);
+      const { current: streak, best: bestStreak, graceDayActive } = habit
+        ? calculateStreak(logs, habit)
+        : { current: 0, best: 0, graceDayActive: false };
       const strengthScore = calculateStrengthScore(logs, habitId);
 
       return {
@@ -143,7 +85,7 @@ export function useStats() {
         graceDayActive,
       };
     },
-    [logs]
+    [logs, habits]
   );
 
   const getOverallStats = useCallback(
@@ -162,10 +104,10 @@ export function useStats() {
 
       const totalCompleted = logs.filter((l) => l.completed).length;
       const bestStreak = habits.length
-        ? Math.max(...habits.map((h) => calculateStreak(logs, h.id).best), 0)
+        ? Math.max(...habits.map((h) => calculateStreak(logs, h).best), 0)
         : 0;
       const currentStreak = habits.length
-        ? Math.max(...habits.map((h) => calculateStreak(logs, h.id).current), 0)
+        ? Math.max(...habits.map((h) => calculateStreak(logs, h).current), 0)
         : 0;
 
       return { byDate, totalCompleted, bestStreak, currentStreak };
@@ -173,5 +115,5 @@ export function useStats() {
     [habits, logs]
   );
 
-  return { habits, logs, loading, reload: load, getHabitStats, getOverallStats };
+  return { habits, logs, loading, error, reload: load, getHabitStats, getOverallStats };
 }

@@ -349,7 +349,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
 
     // Validate day selections
     if (frequency === "weekly" && targetDays.length === 0) {
-      setScheduleError("Selecciona un día de la semana");
+      setScheduleError(t("habits.errorSelectWeekday"));
       return;
     }
     if (
@@ -357,7 +357,7 @@ export function HabitForm({ initial, categories, onSave, onCancel }: HabitFormPr
       (customType === "weekdays" || customType === "month_days") &&
       targetDays.length === 0
     ) {
-      setScheduleError("Selecciona al menos un día");
+      setScheduleError(t("habits.errorSelectDay"));
       return;
     }
 
