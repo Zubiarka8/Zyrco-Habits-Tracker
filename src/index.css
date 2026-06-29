@@ -1084,6 +1084,34 @@ a { text-decoration: none; color: inherit; }
   flex-shrink: 0;
 }
 
+/* ── Habit state pills (done / missed / skipped) ──────────── */
+.habit-state-pills {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.state-pill--done    { background: #22c55e1a; color: #16a34a; }
+.state-pill--missed  { background: #ef44441a; color: #dc2626; }
+.state-pill--skipped { background: #f59e0b1a; color: #d97706; }
+.per-habit-row--totals {
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  padding: 8px 6px;
+}
+
 .period-selector { display: flex; gap: 4px; }
 .period-btn {
   padding: 5px 12px;

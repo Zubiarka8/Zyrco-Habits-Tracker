@@ -9,7 +9,7 @@ import {
 } from "date-fns";
 import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, XCircle } from "lucide-react";
 import { useStats } from "../hooks/useStats";
-import { fetchMissesForRange } from "../db/database";
+import { fetchMissesForRange, fetchSkipsForRange } from "../db/database";
 import { useCategories } from "../hooks/useCategories";
 import { isHabitDueOnDay } from "../utils/schedule";
 import { StreakBadge } from "../components/StreakBadge";
@@ -46,17 +46,43 @@ export function Stats() {
     );
   }, [period]);
 
-  const [missCountByHabit, setMissCountByHabit] = useState<Map<string, number>>(new Map());
+  const [missCountByHabit,  setMissCountByHabit]  = useState<Map<string, number>>(new Map());
+  const [skipCountByHabit,  setSkipCountByHabit]  = useState<Map<string, number>>(new Map());
+  const [doneCountByHabit,  setDoneCountByHabit]  = useState<Map<string, number>>(new Map());
+
   useEffect(() => {
     if (periodDates.length === 0) return;
-    fetchMissesForRange(periodDates[0], periodDates[periodDates.length - 1])
-      .then((rows) => {
-        const counts = new Map<string, number>();
-        rows.forEach((r) => counts.set(r.habit_id, (counts.get(r.habit_id) ?? 0) + 1));
-        setMissCountByHabit(counts);
-      })
-      .catch((err) => console.error("Stats fetchMissesForRange failed:", err));
+    const start = periodDates[0];
+    const end   = periodDates[periodDates.length - 1];
+
+    Promise.all([
+      fetchMissesForRange(start, end),
+      fetchSkipsForRange(start, end),
+    ]).then(([missRows, skipRows]) => {
+      const misses = new Map<string, number>();
+      missRows.forEach((r) => misses.set(r.habit_id, (misses.get(r.habit_id) ?? 0) + 1));
+      setMissCountByHabit(misses);
+
+      // Only type='skip' counts as saltado (type='exclude' means the day doesn't exist for the habit)
+      const skips = new Map<string, number>();
+      skipRows
+        .filter((r) => r.type === "skip")
+        .forEach((r) => skips.set(r.habit_id, (skips.get(r.habit_id) ?? 0) + 1));
+      setSkipCountByHabit(skips);
+    }).catch((err) => console.error("Stats range fetch failed:", err));
   }, [periodDates]);
+
+  // Recompute done counts whenever logs or period changes
+  useEffect(() => {
+    if (periodDates.length === 0) return;
+    const start = periodDates[0];
+    const end   = periodDates[periodDates.length - 1];
+    const done = new Map<string, number>();
+    logs
+      .filter((l) => l.completed && l.date >= start && l.date <= end)
+      .forEach((l) => done.set(l.habit_id, (done.get(l.habit_id) ?? 0) + 1));
+    setDoneCountByHabit(done);
+  }, [logs, periodDates]);
 
   const rateChartData = useMemo(() => {
     if (habits.length === 0) return [];
@@ -398,8 +424,30 @@ export function Stats() {
           <p className="text-muted text-sm">{t("stats.noHabitsYet")}</p>
         ) : (
           <div className="per-habit-list">
+            {/* Totals row */}
+            {(() => {
+              const totalDone    = Array.from(doneCountByHabit.values()).reduce((s, n) => s + n, 0);
+              const totalMissed  = Array.from(missCountByHabit.values()).reduce((s, n) => s + n, 0);
+              const totalSkipped = Array.from(skipCountByHabit.values()).reduce((s, n) => s + n, 0);
+              return (
+                <div className="per-habit-row per-habit-row--totals">
+                  <div className="per-habit-info">
+                    <span className="habit-name" style={{ fontWeight: 700 }}>{t("stats.total")}</span>
+                  </div>
+                  <div className="habit-state-pills">
+                    <span className="state-pill state-pill--done">✓ {totalDone}</span>
+                    <span className="state-pill state-pill--missed">✗ {totalMissed}</span>
+                    <span className="state-pill state-pill--skipped">↷ {totalSkipped}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             {habits.map((habit) => {
-              const stats = getHabitStats(habit.id, period);
+              const stats   = getHabitStats(habit.id, period);
+              const done    = doneCountByHabit.get(habit.id)  ?? 0;
+              const missed  = missCountByHabit.get(habit.id)  ?? 0;
+              const skipped = skipCountByHabit.get(habit.id)  ?? 0;
               return (
                 <div key={habit.id} className="per-habit-row">
                   <div className="habit-card-icon" style={{ background: habit.color + "22" }}>
@@ -416,6 +464,11 @@ export function Stats() {
                       </div>
                       <span className="per-habit-rate">{stats.completionRate}%</span>
                     </div>
+                  </div>
+                  <div className="habit-state-pills">
+                    <span className="state-pill state-pill--done"  title={t("stats.stateDone")}>✓ {done}</span>
+                    <span className="state-pill state-pill--missed" title={t("stats.stateMissed")}>✗ {missed}</span>
+                    <span className="state-pill state-pill--skipped" title={t("stats.stateSkipped")}>↷ {skipped}</span>
                   </div>
                   <StreakBadge streak={stats.streak} graceDayActive={stats.graceDayActive} />
                 </div>

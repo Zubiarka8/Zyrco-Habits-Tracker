@@ -30,26 +30,41 @@ export function useCategories() {
 
   const create = useCallback(
     async (data: Omit<Category, "id" | "created_at">) => {
-      const cat = await insertCategory(data);
-      setCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
-      return cat;
+      try {
+        const cat = await insertCategory(data);
+        setCategories((prev) => [...prev, cat].sort((a, b) => a.name.localeCompare(b.name)));
+        return cat;
+      } catch (err) {
+        console.error("useCategories.create failed:", err);
+        throw err;
+      }
     },
     []
   );
 
   const update = useCallback(
     async (id: string, data: Partial<Omit<Category, "id" | "created_at">>) => {
-      await updateCategory(id, data);
-      setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...data } : c))
-      );
+      try {
+        await updateCategory(id, data);
+        setCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, ...data } : c))
+        );
+      } catch (err) {
+        console.error(`useCategories.update failed — id ${id}:`, err);
+        throw err;
+      }
     },
     []
   );
 
   const remove = useCallback(async (id: string) => {
-    await deleteCategory(id);
-    setCategories((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await deleteCategory(id);
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error(`useCategories.remove failed — id ${id}:`, err);
+      throw err;
+    }
   }, []);
 
   return { categories, loading, error, reload: load, create, update, remove };

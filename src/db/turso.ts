@@ -225,7 +225,8 @@ export async function initTursoSchema(): Promise<void> {
       id TEXT PRIMARY KEY, name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#6366f1',
       icon TEXT NOT NULL DEFAULT '📁',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT ''
     )`,
     `CREATE TABLE IF NOT EXISTS habits (
       id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
@@ -237,19 +238,35 @@ export async function initTursoSchema(): Promise<void> {
       type TEXT NOT NULL DEFAULT 'normal',
       reminder_enabled INTEGER NOT NULL DEFAULT 0,
       reminder_time TEXT, created_at TEXT NOT NULL,
-      archived INTEGER NOT NULL DEFAULT 0
+      archived INTEGER NOT NULL DEFAULT 0,
+      session TEXT NOT NULL DEFAULT 'anytime',
+      completion_type TEXT NOT NULL DEFAULT 'binary',
+      completion_target INTEGER,
+      completion_unit TEXT,
+      time_start TEXT,
+      time_end TEXT,
+      paused_until TEXT,
+      user_id TEXT NOT NULL DEFAULT ''
     )`,
     `CREATE TABLE IF NOT EXISTS logs (
       id TEXT PRIMARY KEY, habit_id TEXT NOT NULL,
       date TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
-      note TEXT, created_at TEXT NOT NULL,
+      note TEXT, value REAL, created_at TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT '',
       UNIQUE(habit_id, date)
     )`,
     `CREATE TABLE IF NOT EXISTS todos (
       id TEXT PRIMARY KEY, title TEXT NOT NULL,
       completed INTEGER NOT NULL DEFAULT 0,
       priority TEXT NOT NULL DEFAULT 'none',
-      due_date TEXT, created_at TEXT NOT NULL
+      due_date TEXT, created_at TEXT NOT NULL,
+      user_id TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE TABLE IF NOT EXISTS skips (
+      id TEXT PRIMARY KEY, habit_id TEXT NOT NULL,
+      date TEXT NOT NULL, user_id TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      UNIQUE(habit_id, date, user_id)
     )`,
   ];
 
