@@ -7,7 +7,8 @@ import {
 import {
   format, startOfMonth, eachDayOfInterval, getDaysInMonth, subDays, parseISO,
 } from "date-fns";
-import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, XCircle } from "lucide-react";
+import { es as dateEs } from "date-fns/locale";
+import { Flame, CheckCircle2, Award, TrendingUp, Percent, Star, CalendarDays, XCircle, X } from "lucide-react";
 import { useStats } from "../hooks/useStats";
 import { fetchMissesForRange, fetchSkipsForRange } from "../db/database";
 import { useCategories } from "../hooks/useCategories";
@@ -15,6 +16,97 @@ import { isHabitDueOnDay } from "../utils/schedule";
 import { StreakBadge } from "../components/StreakBadge";
 import { AnnualHeatmap } from "../components/AnnualHeatmap";
 import { useNavigate } from "react-router-dom";
+import type { Habit, Log } from "../types";
+
+type MissRow  = { habit_id: string; date: string };
+type SkipRow  = { habit_id: string; date: string; type: string };
+
+// ── Per-habit drill-down drawer ───────────────────────────────────────────────
+
+interface HabitDrillDownProps {
+  habit: Habit;
+  periodDates: string[];
+  logs: Log[];
+  missRows: MissRow[];
+  skipRows: SkipRow[];
+  onClose: () => void;
+}
+
+function HabitDrillDown({ habit, periodDates, logs, missRows, skipRows, onClose }: HabitDrillDownProps) {
+  const { i18n } = useTranslation();
+
+  type DayStatus = "done" | "missed" | "skipped" | "excluded" | "pending" | "not-due";
+
+  const days = useMemo(() => {
+    return periodDates.map((dateStr) => {
+      const day = parseISO(dateStr + "T00:00:00");
+      const due = isHabitDueOnDay(habit, day);
+      if (!due) return { dateStr, status: "not-due" as DayStatus };
+
+      const log      = logs.find((l) => l.habit_id === habit.id && l.date === dateStr);
+      const isMissed = missRows.some((r) => r.habit_id === habit.id && r.date === dateStr);
+      const skipRow  = skipRows.find((r) => r.habit_id === habit.id && r.date === dateStr);
+
+      let status: DayStatus;
+      if (log?.completed)          status = "done";
+      else if (skipRow?.type === "exclude") status = "excluded";
+      else if (skipRow?.type === "skip")    status = "skipped";
+      else if (isMissed)           status = "missed";
+      else                         status = "pending";
+
+      return { dateStr, status };
+    }).filter((d) => d.status !== "not-due");
+  }, [periodDates, logs, missRows, skipRows, habit]);
+
+  const STATUS_CFG: Record<DayStatus, { label: string; cls: string; icon: string }> = {
+    done:     { label: "Hecho",    cls: "state-pill--done",    icon: "✓" },
+    missed:   { label: "No hecho", cls: "state-pill--missed",  icon: "✗" },
+    skipped:  { label: "Saltado",  cls: "state-pill--skipped", icon: "↷" },
+    excluded: { label: "Excluido", cls: "state-pill--skipped", icon: "—" },
+    pending:  { label: "Pendiente",cls: "state-pill--pending", icon: "·" },
+    "not-due":{ label: "",         cls: "",                    icon: "" },
+  };
+
+  const locale = i18n.language.startsWith("es") ? dateEs : undefined;
+
+  return (
+    <>
+      <div className="cal-backdrop" onClick={onClose} />
+      <div className="cal-drawer habit-drilldown-drawer" role="dialog" aria-modal="true">
+        <div className="cal-drawer-handle" />
+        <div className="cal-drawer-header">
+          <div className="cal-drawer-title-group">
+            <span className="cal-drawer-icon-lg">{habit.icon}</span>
+            <span className="cal-drawer-date">{habit.name}</span>
+          </div>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="habit-drilldown-list">
+          {days.length === 0 ? (
+            <p className="text-muted" style={{ padding: "16px 0" }}>Sin datos en este período.</p>
+          ) : (
+            days.map(({ dateStr, status }) => {
+              const cfg = STATUS_CFG[status];
+              const dateObj = parseISO(dateStr + "T00:00:00");
+              return (
+                <div key={dateStr} className="habit-drilldown-row">
+                  <span className="habit-drilldown-date">
+                    {format(dateObj, "EEE d MMM yyyy", { locale })}
+                  </span>
+                  <span className={`state-pill ${cfg.cls}`}>
+                    {cfg.icon} {cfg.label}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
 
 type Period = 7 | 30 | 90 | 365;
 
@@ -49,6 +141,9 @@ export function Stats() {
   const [missCountByHabit,  setMissCountByHabit]  = useState<Map<string, number>>(new Map());
   const [skipCountByHabit,  setSkipCountByHabit]  = useState<Map<string, number>>(new Map());
   const [doneCountByHabit,  setDoneCountByHabit]  = useState<Map<string, number>>(new Map());
+  const [allMissRows, setAllMissRows] = useState<MissRow[]>([]);
+  const [allSkipRows, setAllSkipRows] = useState<SkipRow[]>([]);
+  const [selectedHabit, setSelectedHabit] = useState<Habit | null>(null);
 
   useEffect(() => {
     if (periodDates.length === 0) return;
@@ -59,6 +154,9 @@ export function Stats() {
       fetchMissesForRange(start, end),
       fetchSkipsForRange(start, end),
     ]).then(([missRows, skipRows]) => {
+      setAllMissRows(missRows);
+      setAllSkipRows(skipRows);
+
       const misses = new Map<string, number>();
       missRows.forEach((r) => misses.set(r.habit_id, (misses.get(r.habit_id) ?? 0) + 1));
       setMissCountByHabit(misses);
@@ -454,7 +552,14 @@ export function Stats() {
               const missed  = missCountByHabit.get(habit.id)  ?? 0;
               const skipped = skipCountByHabit.get(habit.id)  ?? 0;
               return (
-                <div key={habit.id} className="per-habit-row">
+                <div
+                  key={habit.id}
+                  className="per-habit-row per-habit-row--clickable"
+                  onClick={() => setSelectedHabit(habit)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && setSelectedHabit(habit)}
+                >
                   <div className="habit-card-icon" style={{ background: habit.color + "22" }}>
                     <span style={{ fontSize: 18 }}>{habit.icon}</span>
                   </div>
@@ -586,6 +691,18 @@ export function Stats() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Habit drill-down drawer */}
+      {selectedHabit && (
+        <HabitDrillDown
+          habit={selectedHabit}
+          periodDates={periodDates}
+          logs={logs}
+          missRows={allMissRows}
+          skipRows={allSkipRows}
+          onClose={() => setSelectedHabit(null)}
+        />
       )}
     </div>
   );
