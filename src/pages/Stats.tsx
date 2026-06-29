@@ -128,6 +128,8 @@ export function Stats() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>(30);
   const { habits, logs, loading, getHabitStats, getOverallStats } = useStats();
+  // useStats fetches including archived (for streak history); filter them out for UI lists
+  const activeHabits = useMemo(() => habits.filter((h) => !h.archived), [habits]);
   const { categories } = useCategories();
 
   // ALL hooks must be above any conditional return (React rules)
@@ -183,7 +185,7 @@ export function Stats() {
   }, [logs, periodDates]);
 
   const rateChartData = useMemo(() => {
-    if (habits.length === 0) return [];
+    if (activeHabits.length === 0) return [];
     const interval = period <= 30 ? 1 : period === 90 ? 7 : 30;
     const buckets: { date: string; rate: number | null; completions: number }[] = [];
     for (let i = 0; i < periodDates.length; i += interval) {
@@ -191,7 +193,7 @@ export function Stats() {
       let due = 0, done = 0;
       slice.forEach((date) => {
         const day = parseISO(date + "T00:00:00");
-        due += habits.filter((h) => isHabitDueOnDay(h, day)).length;
+        due += activeHabits.filter((h) => isHabitDueOnDay(h, day)).length;
         done += logs.filter((l) => l.date === date && l.completed).length;
       });
       buckets.push({
@@ -201,7 +203,7 @@ export function Stats() {
       });
     }
     return buckets;
-  }, [habits, logs, period, periodDates]);
+  }, [activeHabits, logs, period, periodDates]);
 
   const dowData = useMemo(() => {
     const dowNames: string[] = [0, 1, 2, 3, 4, 5, 6].map((d) => t(`common.days.${d}`));
@@ -210,25 +212,25 @@ export function Stats() {
       let due = 0, done = 0;
       dowDates.forEach((date) => {
         const day = parseISO(date + "T00:00:00");
-        due += habits.filter((h) => isHabitDueOnDay(h, day)).length;
+        due += activeHabits.filter((h) => isHabitDueOnDay(h, day)).length;
         done += logs.filter((l) => l.date === date && l.completed).length;
       });
       return { day: dowNames[dow], rate: due > 0 ? Math.round((done / due) * 100) : 0 };
     });
-  }, [habits, logs, periodDates, t]);
+  }, [activeHabits, logs, periodDates, t]);
 
   const { perfectDays, activeDays } = useMemo(() => {
     let perfect = 0, active = 0;
     periodDates.forEach((date) => {
       const day = parseISO(date + "T00:00:00");
-      const due = habits.filter((h) => isHabitDueOnDay(h, day));
+      const due = activeHabits.filter((h) => isHabitDueOnDay(h, day));
       if (logs.some((l) => l.date === date && l.completed)) active++;
       if (due.length > 0 && due.every((h) => logs.some((l) => l.habit_id === h.id && l.date === date && l.completed))) {
         perfect++;
       }
     });
     return { perfectDays: perfect, activeDays: active };
-  }, [habits, logs, periodDates]);
+  }, [activeHabits, logs, periodDates]);
 
   if (loading) return <div className="page-loading">{t("common.loading")}</div>;
 
@@ -260,17 +262,17 @@ export function Stats() {
   ).length;
   let totalDueThisMonth = 0;
   eachDayOfInterval({ start: monthStart, end: today }).forEach((day) => {
-    habits.forEach((h) => { if (isHabitDueOnDay(h, day)) totalDueThisMonth++; });
+    activeHabits.forEach((h) => { if (isHabitDueOnDay(h, day)) totalDueThisMonth++; });
   });
   const monthRate = totalDueThisMonth > 0
     ? Math.round((monthCompletions / totalDueThisMonth) * 100)
     : 0;
 
   // ── Avg completion rate + delta ──────────────────────────
-  const avgCompletionRate = habits.length > 0
+  const avgCompletionRate = activeHabits.length > 0
     ? Math.round(
-        habits.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
-        habits.length
+        activeHabits.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
+        activeHabits.length
       )
     : 0;
   const prevEnd   = subDays(today, period);
@@ -278,14 +280,14 @@ export function Stats() {
   const prevRange = eachDayOfInterval({ start: prevStart, end: prevEnd }).map((d) =>
     format(d, "yyyy-MM-dd")
   );
-  const prevAvgCompletionRate = habits.length > 0
+  const prevAvgCompletionRate = activeHabits.length > 0
     ? Math.round(
-        habits.reduce((sum, h) => {
+        activeHabits.reduce((sum, h) => {
           const completed = prevRange.filter((date) =>
             logs.some((l) => l.habit_id === h.id && l.date === date && l.completed)
           ).length;
           return sum + Math.round((completed / prevRange.length) * 100);
-        }, 0) / habits.length
+        }, 0) / activeHabits.length
       )
     : 0;
   const rateDelta = period < 365 ? avgCompletionRate - prevAvgCompletionRate : 0;
@@ -293,7 +295,7 @@ export function Stats() {
   // ── Category breakdown ───────────────────────────────────
   const categoryStats = categories
     .map((cat) => {
-      const catHabits = habits.filter((h) => h.category_id === cat.id);
+      const catHabits = activeHabits.filter((h) => h.category_id === cat.id);
       if (catHabits.length === 0) return null;
       const avgRate = Math.round(
         catHabits.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
@@ -302,7 +304,7 @@ export function Stats() {
       return { cat, avgRate, habitCount: catHabits.length };
     })
     .filter(Boolean) as { cat: (typeof categories)[0]; avgRate: number; habitCount: number }[];
-  const uncategorized = habits.filter((h) => !h.category_id);
+  const uncategorized = activeHabits.filter((h) => !h.category_id);
   const uncategorizedRate = uncategorized.length > 0
     ? Math.round(
         uncategorized.reduce((sum, h) => sum + getHabitStats(h.id, period).completionRate, 0) /
@@ -356,10 +358,10 @@ export function Stats() {
       </div>
 
       {/* Annual heatmap */}
-      <AnnualHeatmap habits={habits} logs={logs} />
+      <AnnualHeatmap habits={activeHabits} logs={logs} />
 
       {/* No data banner — shown only when there are no logs at all */}
-      {!hasDataInPeriod && logs.length === 0 && habits.length > 0 && (
+      {!hasDataInPeriod && logs.length === 0 && activeHabits.length > 0 && (
         <div className="stats-no-data-banner">
           <span className="stats-no-data-icon">📊</span>
           <div>
@@ -523,7 +525,7 @@ export function Stats() {
       {/* Per-habit breakdown */}
       <div className="per-habit-section">
         <h2 className="section-title">{t("stats.perHabit")}</h2>
-        {habits.length === 0 ? (
+        {activeHabits.length === 0 ? (
           <p className="text-muted text-sm">{t("stats.noHabitsYet")}</p>
         ) : (
           <div className="per-habit-list">
@@ -546,7 +548,7 @@ export function Stats() {
               );
             })()}
 
-            {habits.map((habit) => {
+            {activeHabits.map((habit) => {
               const stats   = getHabitStats(habit.id, period);
               const done    = doneCountByHabit.get(habit.id)  ?? 0;
               const missed  = missCountByHabit.get(habit.id)  ?? 0;
@@ -653,7 +655,7 @@ export function Stats() {
             {t("stats.missedHabitsDesc")}
           </p>
           <div className="per-habit-list">
-            {habits
+            {activeHabits
               .filter((h) => (missCountByHabit.get(h.id) ?? 0) > 0)
               .sort((a, b) => (missCountByHabit.get(b.id) ?? 0) - (missCountByHabit.get(a.id) ?? 0))
               .map((h) => {
@@ -680,7 +682,7 @@ export function Stats() {
       )}
 
       {/* Navigate to habits if none created yet */}
-      {habits.length === 0 && (
+      {activeHabits.length === 0 && (
         <div className="stats-no-data-banner" style={{ marginTop: 16 }}>
           <span className="stats-no-data-icon">✨</span>
           <div>
