@@ -227,6 +227,11 @@ export function Stats() {
             </button>
           ))}
         </div>
+        <p className="period-date-range">
+          {periodDates.length > 0
+            ? `${format(parseISO(periodDates[0] + "T00:00:00"), "d MMM yyyy")} – ${format(parseISO(periodDates[periodDates.length - 1] + "T00:00:00"), "d MMM yyyy")}`
+            : ""}
+        </p>
       </div>
 
       {/* Monthly summary card */}

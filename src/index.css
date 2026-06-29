@@ -1128,6 +1128,13 @@ a { text-decoration: none; color: inherit; }
   border-color: var(--color-primary);
   color: #fff;
 }
+.period-date-range {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin: 4px 0 0;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
 
 /* ── Settings page ──────────────────────────────────────── */
 .settings-sections { display: flex; flex-direction: column; gap: 24px; }
